@@ -1,0 +1,7 @@
+node_modules/
+data/
+dataset_public/
+*.log
+.DS_Store
+.env
+.agent/

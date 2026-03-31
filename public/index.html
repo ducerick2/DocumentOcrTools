@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dataset Manager - Document OCR</title>
+  <meta name="description" content="Manage and annotate datasets for document OCR training">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <rect x="4" y="4" width="24" height="24" rx="4" stroke="currentColor" stroke-width="2" />
+            <path d="M10 12h12M10 16h12M10 20h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <h1>Dataset Manager</h1>
+        </div>
+        <button id="toggleSidebarBtn" class="toggle-sidebar" title="Toggle Sidebar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+          </svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-view="datasets">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="2" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5" />
+            <rect x="11" y="2" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5" />
+            <rect x="2" y="11" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5" />
+            <rect x="11" y="11" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          <span>Datasets</span>
+        </button>
+
+        <button class="nav-item" data-view="annotate" disabled>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M2 18l4-1-3-3-1 4zm5-2l9-9 3 3-9 9-3-3zm10-10l2-2-3-3-2 2 3 3z" fill="currentColor" />
+          </svg>
+          <span>Annotate</span>
+        </button>
+
+        <button class="nav-item" data-view="export">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M10 2v10m0 0l-3-3m3 3l3-3M3 14v3a1 1 0 001 1h12a1 1 0 001-1v-3" stroke="currentColor"
+              stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span>Export</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="stats">
+          <div class="stat-item">
+            <span class="stat-label">Total Datasets</span>
+            <span class="stat-value" id="totalDatasets">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Total Images</span>
+            <span class="stat-value" id="totalImages">0</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Datasets View -->
+      <div id="datasetsView" class="view active">
+        <div class="view-header">
+          <div>
+            <h2>Datasets</h2>
+            <p class="subtitle">Manage your document OCR datasets</p>
+          </div>
+          <button class="btn btn-primary" id="createDatasetBtn">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            Create Dataset
+          </button>
+        </div>
+
+        <div class="datasets-grid" id="datasetsGrid">
+          <!-- Dataset cards will be inserted here -->
+        </div>
+
+        <div class="empty-state" id="emptyState">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <rect x="12" y="12" width="40" height="40" rx="4" stroke="currentColor" stroke-width="2" />
+            <path d="M20 24h24M20 32h24M20 40h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <h3>No datasets yet</h3>
+          <p>Create your first dataset to start annotating images</p>
+          <button class="btn btn-primary" onclick="document.getElementById('createDatasetBtn').click()">
+            Create Dataset
+          </button>
+        </div>
+      </div>
+
+      <!-- Annotate View -->
+      <div id="annotateView" class="view">
+        <div class="view-header">
+          <div>
+            <h2 id="annotateDatasetName">Annotate</h2>
+            <p class="subtitle" id="annotateDatasetDesc">Select images and add annotations</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="backToDatasets">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M12 5l-5 5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              Back to Datasets
+            </button>
+            <button class="btn btn-secondary" id="importFromServerBtn">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M3 7h14M3 12h14M3 17h14M7 3v14" stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" />
+              </svg>
+              Import from Server
+            </button>
+            <button class="btn btn-secondary" id="checkDuplicateBtn" style="color: #fff; font-weight: 600; background-color: #64748b; margin-right: 8px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Check Duplicate
+            </button>
+            <button class="btn btn-warning" id="cleanDataBtn" style="background-color: #f97316; border-color: #f97316; color: #fff; font-weight: 600;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18.8 13.1a3 3 0 0 0-3.3-3.3L3 21l1.1 1.1L15.2 11a3 3 0 0 0 3.6 2.1Z"/>
+                <path d="M11.9 15.8c.2-.2.4-.4.6-.7"/>
+                <path d="M15.2 12.5c-.2.2-.4.4-.7.6"/>
+                <path d="M9 13l-4 4"/>
+                <path d="M11 11l-4 4"/>
+                <path d="M8 8l-4 4"/>
+                <path d="M13 14l-4 4"/>
+              </svg>
+              Clean Data
+            </button>
+            <button class="btn btn-primary" id="uploadImagesBtn">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 12V2m0 0L7 5m3-3l3 3M3 14v3a1 1 0 001 1h12a1 1 0 001-1v-3" stroke="currentColor"
+                  stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              Upload Images
+            </button>
+          </div>
+        </div>
+        <div class="canvas-toolbar"
+          style="border-bottom: 1px solid var(--border-color); border-top: 1px solid var(--border-color); background: var(--bg-secondary); flex-wrap: wrap;">
+          <div class="tool-group">
+            <button class="tool-btn active" data-tool="select" title="Select">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M3 3l7 14 2-6 6-2L3 3z" stroke="currentColor" stroke-width="1.5" />
+              </svg>
+            </button>
+            <button class="tool-btn" data-tool="bbox" title="Bounding Box">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <rect x="4" y="4" width="12" height="12" stroke="currentColor" stroke-width="1.5" />
+              </svg>
+            </button>
+            <button class="tool-btn" data-tool="polygon" title="Polygon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 3l7 4v6l-7 4-7-4V7l7-4z" stroke="currentColor" stroke-width="1.5" />
+              </svg>
+            </button>
+            <button class="tool-btn" data-tool="keypoint" title="Keypoint">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5" />
+                <circle cx="10" cy="10" r="1" fill="currentColor" />
+              </svg>
+            </button>
+            <button class="tool-btn" data-tool="bbox2poly"
+              title="BBox → Poly (Convert bbox corners to editable polygon)">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <rect x="4" y="4" width="12" height="12" stroke="currentColor" stroke-width="1.5"
+                  stroke-dasharray="3 2" />
+                <rect x="2.5" y="2.5" width="3" height="3" fill="currentColor" rx="0.5" />
+                <rect x="14.5" y="2.5" width="3" height="3" fill="currentColor" rx="0.5" />
+                <rect x="14.5" y="14.5" width="3" height="3" fill="currentColor" rx="0.5" />
+                <rect x="2.5" y="14.5" width="3" height="3" fill="currentColor" rx="0.5" />
+              </svg>
+            </button>
+            <button class="tool-btn" data-tool="rotate" title="Rotate (Multi-select with Ctrl or drag)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
+                <polyline points="21 3 21 8 16 8"></polyline>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Rotation Controls (Hidden by default) -->
+          <div id="rotationControls" class="tool-group"
+            style="display: none; background: rgba(99, 102, 241, 0.1); padding: 4px 12px; border-radius: 8px; align-items: center; gap: 10px; margin-left: 10px;">
+            <label style="font-size: 12px; font-weight: bold; color: var(--primary-color);">Rotate:</label>
+            <input type="range" id="rotationSlider" min="-10" max="10" value="0" step="0.1" style="width: 120px;">
+            <span id="rotationValue" style="font-size: 12px; min-width: 30px; font-weight: bold;">0.0°</span>
+            <label
+              style="font-size: 12px; font-weight: bold; color: var(--primary-color); margin-left: 5px;">Scale:</label>
+            <input type="range" id="scaleSlider" min="0.2" max="2.0" value="1.0" step="0.1" style="width: 120px;">
+            <span id="scaleValue" style="font-size: 12px; min-width: 30px; font-weight: bold;">1.00x</span>
+            <button id="resetRotationBtn" class="btn btn-secondary"
+              style="padding: 2px 8px; font-size: 11px;">Reset</button>
+            <button id="undoBtn" class="tool-btn" title="Undo (Ctrl+Z)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 14L4 9l5-5"></path>
+                <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
+              </svg>
+            </button>
+          </div>
+
+          <div class="tool-group">
+            <button class="tool-btn" id="zoomInBtn" title="Zoom In">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.5" />
+                <path d="M9 6v6M6 9h6M14 14l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+            </button>
+            <button class="tool-btn" id="zoomOutBtn" title="Zoom Out">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.5" />
+                <path d="M6 9h6M14 14l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+            </button>
+            <button class="tool-btn" id="fitBtn" title="Fit to Screen">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M3 3h5M3 3v5M17 3h-5M17 3v5M3 17h5M3 17v-5M17 17h-5M17 17v-5" stroke="currentColor"
+                  stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="tool-group">
+            <button class="tool-btn" id="autoSaveBtn" title="Toggle Auto Save">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2v10m0 0l-3-3m3 3l3-3M3 14v3a1 1 0 001 1h12a1 1 0 001-1v-3" stroke="currentColor"
+                  stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              <!-- Sync indicator dot -->
+              <div id="autoSaveIndicator"
+                style="position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background-color: #22c55e; display: none;">
+              </div>
+              <span style="font-size: 10px; margin-left: 0px; font-weight: 600;">Auto</span>
+            </button>
+            <button class="tool-btn active" id="toggleLabelsBtn" title="Toggle Labels &amp; Reading Order">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 14c2.5 0 5-2.5 5-4s-2.5-4-5-4-5 2.5-5 4 2.5 4 5 4z" stroke="currentColor"
+                  stroke-width="1.5" />
+                <circle cx="10" cy="10" r="2" fill="currentColor" />
+              </svg>
+            </button>
+            <!-- Filter labels by visibility -->
+            <div style="position:relative;">
+              <button class="tool-btn" id="filterLabelsBtn" title="Filter labels shown in list"
+                style="position:relative;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                </svg>
+                <span id="filterLabelsBadge"
+                  style="display:none;position:absolute;top:2px;right:2px;background:#ef4444;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;line-height:14px;text-align:center;font-weight:700;"></span>
+              </button>
+              <div id="filterLabelsPanel"
+                style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:9999;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;padding:10px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,0.3);max-height:320px;overflow-y:auto;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                  <span style="font-size:0.78rem;font-weight:600;color:var(--text-secondary);">Hiện label</span>
+                  <button id="filterLabelsClearBtn"
+                    style="font-size:0.75rem;background:none;border:none;cursor:pointer;color:var(--accent-color);padding:0;">Tất
+                    cả</button>
+                </div>
+                <div id="filterLabelsCheckboxes"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tool-group">
+            <select id="toolbarModelSelect" class="form-select" style="padding: 4px; font-size: 0.85rem; width: 120px;">
+              <option value="qwen3_vl_local">Qwen3-VL</option>
+              <option value="mineru_2_5">MinerU 2.5</option>
+              <option value="olmocr2_0">olmOCR-2.0</option>
+              <option value="gemini_flash_lite">Gemini Flash</option>
+              <option value="gemma_3_27b_it">Gemma 3</option>
+            </select>
+            <button class="tool-btn" id="extractAllBtn" title="Extract All Text">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+            </button>
+            <button class="tool-btn" id="sortLayoutsBtn" title="Sort layouts top→bottom, left→right"
+              style="color: #f97316;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="15" y2="12" />
+                <line x1="3" y1="18" x2="9" y2="18" />
+                <polyline points="17 15 21 18 17 21" />
+              </svg>
+            </button>
+            <button class="tool-btn" id="manualSortBtn" data-tool="manual_sort"
+              title="Manual Sort (Select area then click sequence)" style="color: #8b5cf6;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="10" y1="6" x2="21" y2="6" />
+                <line x1="10" y1="12" x2="21" y2="12" />
+                <line x1="10" y1="18" x2="21" y2="18" />
+                <path d="M4 6h1v4" />
+                <path d="M4 10h2" />
+                <path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="tool-group">
+            <button class="btn btn-sm btn-secondary" id="mergeAnnotationsBtn" disabled
+              title="Merge selected boxes into one">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+              </svg>
+              Merge
+            </button>
+            <button class="btn btn-sm btn-danger" id="deleteAnnotationBtn" disabled>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 7v5M8 7v5M11 7v5" stroke="currentColor"
+                  stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              Delete
+            </button>
+            <button class="btn btn-sm btn-primary" id="saveAnnotationsBtn">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M12 14H4a1 1 0 01-1-1V3a1 1 0 011-1h6l3 3v8a1 1 0 01-1 1z" stroke="currentColor"
+                  stroke-width="1.5" />
+                <path d="M9 2v3h3M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              Save
+            </button>
+          </div>
+
+          <div class="tool-group" style="margin-left: auto">
+            <button class="tool-btn" id="prevImageBtn" title="Previous Image">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M12.5 15l-5-5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </button>
+            <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
+            <button class="tool-btn" id="nextImageBtn" title="Next Image">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M7.5 15l5-5-5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="annotate-container">
+          <div class="images-panel">
+            <div class="panel-header">
+              <button class="tool-btn" id="toggleLeftPanelBtn" title="Toggle Images Panel"
+                style="margin-right: 8px; padding: 0; width: 24px; height: 24px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="9" y1="3" x2="9" y2="21"></line>
+                </svg>
+              </button>
+              <h3>Images</h3>
+              <span class="badge" id="imageCount">0</span>
+            </div>
+            <div class="images-list" id="imagesList">
+              <!-- Image thumbnails will be inserted here -->
+            </div>
+          </div>
+
+          <div class="canvas-panel">
+            <div class="canvas-container" id="canvasContainer">
+              <canvas id="annotationCanvas"></canvas>
+              <div id="verticalScrollbar"
+                style="position: absolute; right: 0; top: 0; bottom: 0; width: 14px; overflow-y: scroll; overflow-x: hidden; z-index: 10; display: none;">
+                <div id="verticalScrollbarContent" style="width: 1px;"></div>
+              </div>
+            </div>
+
+            <div class="canvas-status">
+              <span id="canvasStatus">No image selected</span>
+              <div class="search-box-container" style="display: flex; align-items: center; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 2px 8px; margin: 0 15px; width: 300px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--text-secondary); margin-right: 6px;">
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                </svg>
+                <input type="text" id="statusSearchInput" placeholder="Go to image..." title="Enter image name and press Enter to jump" 
+                       style="background: transparent; color: var(--text-primary); border: none; font-size: 0.75rem; width: 100%; outline: none;">
+              </div>
+              <span id="pageCounter">-- / --</span>
+            </div>
+          </div>
+
+          <div class="annotations-panel">
+            <div class="panel-header">
+              <button class="tool-btn" id="toggleRightPanelBtn" title="Toggle Annotations Panel"
+                style="margin-right: 8px; padding: 0; width: 24px; height: 24px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="15" y1="3" x2="15" y2="21"></line>
+                </svg>
+              </button>
+              <h3>Annotations</h3>
+               <span class="badge" id="annotationCount">0</span>
+              <button class="tool-btn" id="toggleBlinkBtn" title="Toggle Blink" style="margin-left: 8px; background: none; border: none; cursor: pointer; color: var(--text-secondary); width: 24px; height: 24px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="label-selector" style="display:flex;align-items:center;gap:6px;">
+              <label for="labelSelect" style="flex-shrink:0;">Label</label>
+              <select id="labelSelect" class="form-select" style="flex:1;min-width:0;"></select>
+              <button id="showAllHiddenBtn" title="Hiện tất cả annotation đã ẩn"
+                style="flex-shrink:0;background:none;border:1px solid var(--border-color);border-radius:6px;padding:3px 5px;cursor:pointer;color:var(--text-secondary);line-height:0;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="annotations-list" id="annotationsList">
+              <!-- Annotations will be listed here -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Export View -->
+      <div id="exportView" class="view">
+        <div class="view-header">
+          <div>
+            <h2>Export Dataset</h2>
+            <p class="subtitle">Export annotations in various formats</p>
+          </div>
+          <button class="btn btn-secondary" id="backToDatasets2">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M12 5l-5 5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            Back to Datasets
+          </button>
+        </div>
+
+        <div class="export-container">
+          <div class="export-card">
+            <div class="export-icon">
+              <!-- LabelMe Icon -->
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                <rect x="8" y="8" width="32" height="32" rx="4" stroke="currentColor" stroke-width="2" />
+                <path d="M16 20h16M16 24h16M16 28h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </div>
+            <h3>LabelMe (Keypoints)</h3>
+            <p>Export annotations as JSON polygons with keypoints support for specialized tasks</p>
+            <button class="btn btn-primary start-export-btn" data-format="labelme">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2v10m0 0l-3-3m3 3l3-3M3 14v3a1 1 0 001 1h12a1 1 0 001-1v-3" stroke="currentColor"
+                  stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              Select & Export
+            </button>
+          </div>
+
+          <div class="export-card">
+            <div class="export-icon">
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                <path d="M12 12h24v24H12V12z" stroke="currentColor" stroke-width="2" />
+                <path d="M18 18h12M18 24h12M18 30h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </div>
+            <h3>YOLO Format</h3>
+            <p>Export annotations in YOLO format for real-time object detection training</p>
+            <button class="btn btn-primary start-export-btn" data-format="yolo">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2v10m0 0l-3-3m3 3l3-3M3 14v3a1 1 0 001 1h12a1 1 0 001-1v-3" stroke="currentColor"
+                  stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              Select & Export
+            </button>
+          </div>
+
+          <div class="export-card">
+            <div class="export-icon">
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                <rect x="8" y="8" width="32" height="32" rx="4" stroke="currentColor" stroke-width="2" />
+                <circle cx="24" cy="24" r="8" stroke="currentColor" stroke-width="2" />
+              </svg>
+            </div>
+            <h3>COCO Format</h3>
+            <p>Export annotations in COCO JSON format for object detection and segmentation tasks</p>
+            <button class="btn btn-primary start-export-btn" data-format="coco">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2v10m0 0l-3-3m3 3l3-3M3 14v3a1 1 0 001 1h12a1 1 0 001-1v-3" stroke="currentColor"
+                  stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              Select & Export
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Export Wizard Modal -->
+  <div class="modal" id="exportWizardModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h3>Export Wizard <span id="exportFormatLabel"
+            style="font-weight: normal; color: var(--text-secondary); font-size: 1rem; margin-left: 10px;"></span></h3>
+        <button class="modal-close" id="closeExportWizard">&times;</button>
+      </div>
+
+      <!-- Wizard Progress Stepper -->
+      <div class="wizard-stepper"
+        style="display: flex; justify-content: space-between; padding: 20px; border-bottom: 1px solid var(--border-color); background: var(--bg-secondary);">
+        <div class="step active" data-step="1">1. Dataset</div>
+        <div class="step" data-step="2">2. Stats</div>
+        <div class="step" data-step="3">3. Mapping</div>
+        <div class="step" data-step="4">4. Merge</div>
+        <div class="step" data-step="5">5. Path</div>
+        <div class="step" data-step="6">6. Finalize</div>
+      </div>
+
+      <div class="modal-body" style="min-height: 400px; padding: 25px;">
+        <!-- Step 1: Dataset Selection -->
+        <div class="wizard-step-content active" id="wizardStep1">
+          <h4>Select Dataset to Export</h4>
+          <p style="margin-bottom: 20px; color: var(--text-secondary);">Select the dataset you want to export. All
+            images and annotations will be processed.</p>
+          <div class="form-group">
+            <select id="exportDatasetSelect" class="form-select" size="10" style="width: 100%; height: 250px;">
+              <!-- Options populated by JS -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Step 2: Statistics -->
+        <div class="wizard-step-content" id="wizardStep2" style="display: none;">
+          <h4>Dataset Statistics</h4>
+          <div id="exportStatsContainer" class="stats-grid"
+            style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 20px;">
+            <div class="stat-card"
+              style="padding: 15px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary);">
+              <div class="stat-label">Total Images</div>
+              <div class="stat-value" id="exportStatImages"
+                style="font-size: 24px; font-weight: bold; color: var(--primary-color);">0</div>
+            </div>
+            <div class="stat-card"
+              style="padding: 15px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary);">
+              <div class="stat-label">Total Annotations</div>
+              <div class="stat-value" id="exportStatAnnots"
+                style="font-size: 24px; font-weight: bold; color: var(--primary-color);">0</div>
+            </div>
+            <div class="stat-card"
+              style="grid-column: span 2; padding: 15px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary);">
+              <div class="stat-label">Unique Labels</div>
+              <div id="exportStatLabels" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+                <!-- Labels with counts populated here -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Label Mapping -->
+        <div class="wizard-step-content" id="wizardStep3" style="display: none;">
+          <h4>Label Transformation (Optional)</h4>
+          <p style="margin-bottom: 20px; color: var(--text-secondary);">Remap existing labels to new names. Labels left
+            blank will remain unchanged.</p>
+          <div style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 4px;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead style="background: var(--bg-secondary); position: sticky; top: 0;">
+                <tr>
+                  <th style="padding: 10px; border-bottom: 2px solid var(--border-color); text-align: left;">Original
+                    Label</th>
+                  <th style="padding: 10px; border-bottom: 2px solid var(--border-color); text-align: left;">Export As
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="labelMappingTable">
+                <!-- Rows populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Step 4: Label Merging -->
+        <div class="wizard-step-content" id="wizardStep4" style="display: none;">
+          <h4>Merge Labels (Optional)</h4>
+          <p style="margin-bottom: 20px; color: var(--text-secondary);">Configure labels to be merged based on
+            proximity. Rule: Merges the 2 closest boxes.</p>
+
+          <div id="mergeRulesContainer">
+            <!-- Merge rows populated by JS -->
+          </div>
+          <button id="addMergeRuleBtn" class="btn btn-sm btn-secondary" style="margin-top: 15px;">
+            + Add Merge Rule
+          </button>
+
+          <div
+            style="margin-top: 20px; padding: 12px; background: rgba(249, 115, 22, 0.1); border-left: 4px solid #f97316; border-radius: 4px; font-size: 0.85rem;">
+            <strong>Example:</strong> Combine <code>logo</code> and <code>logo_caption</code> into a single
+            <code>Logo</code> object. Only the closest pairs will be merged.
+          </div>
+        </div>
+
+        <!-- Step 5: Export Path -->
+        <div class="wizard-step-content" id="wizardStep5" style="display: none;">
+          <h4>Export Settings</h4>
+          <div class="form-group">
+            <label for="exportPath">Target Server Directory *</label>
+            <div style="display: flex; gap: 10px;">
+              <input type="text" id="exportPath" class="form-input"
+                placeholder="/data/ducbm3/DocumentOCR/export/dataset_v1" required style="flex: 1;">
+              <button id="browseExportPathBtn" class="btn btn-secondary">Browse</button>
+            </div>
+            <small style="color: var(--text-secondary); display: block; margin-top: 8px;">The system will create this
+              folder, copy images, and generate JSON files there.</small>
+          </div>
+          <div class="form-group" style="margin-top: 15px;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="copyImagesToggle" checked style="width: auto;">
+              <span>Copy image files to destination</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Step 6: Finalize -->
+        <div class="wizard-step-content" id="wizardStep6" style="display: none;">
+          <h4>Ready to Export</h4>
+          <div id="exportSummary"
+            style="margin-bottom: 30px; padding: 20px; background: var(--bg-secondary); border-radius: 8px;">
+            <!-- Summary populated by JS -->
+          </div>
+
+          <div id="exportProgressContainer" style="display: none;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold;">
+              <span>Exporting...</span>
+              <span id="exportProgressPercent">0%</span>
+            </div>
+            <div
+              style="width: 100%; height: 20px; background: var(--border-color); border-radius: 10px; overflow: hidden;">
+              <div id="exportProgressBar"
+                style="width: 0%; height: 100%; background: var(--primary-color); transition: width 0.3s ease;"></div>
+            </div>
+            <p id="exportProgressStatus" style="margin-top: 10px; font-size: 0.9rem; color: var(--text-secondary);">
+              Preparing files...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer"
+        style="padding: 15px 25px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+        <button class="btn btn-secondary" id="wizardBackBtn" disabled>Back</button>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-secondary" id="cancelExportWizard">Cancel</button>
+          <button class="btn btn-primary" id="wizardNextBtn">Next</button>
+          <button class="btn btn-primary" id="startExportFinalBtn" style="display: none;">Start Export</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Dataset Modal -->
+  <div class="modal" id="createDatasetModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Create New Dataset</h3>
+        <button class="modal-close" id="closeCreateModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="createDatasetForm">
+          <div class="form-group">
+            <label for="datasetName">Dataset Name *</label>
+            <input type="text" id="datasetName" class="form-input" required placeholder="e.g., Invoice Dataset">
+          </div>
+
+          <div class="form-group">
+            <label for="datasetDescription">Description</label>
+            <textarea id="datasetDescription" class="form-input" rows="3"
+              placeholder="Describe your dataset..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="annotationType">Annotation Type *</label>
+            <select id="annotationType" class="form-select" required>
+              <option value="bbox">Bounding Box</option>
+              <option value="polygon">Polygon</option>
+              <option value="keypoint">Keypoint</option>
+              <option value="mixed">Mixed</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="datasetLabels">Labels (comma-separated)</label>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center;">
+              <input type="checkbox" id="autoLoadLabelsToggle" style="width: auto; margin: 0;">
+              <label for="autoLoadLabelsToggle"
+                style="margin: 0; font-size: 0.85rem; font-weight: normal; cursor: pointer;">Auto-load labels from
+                annotations on import</label>
+            </div>
+            <input type="text" id="datasetLabels" class="form-input" required placeholder="e.g., text, logo, signature">
+            <small id="labelsHint">Enter labels separated by commas</small>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancelCreateBtn">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Dataset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Images Modal -->
+  <div class="modal" id="uploadImagesModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Upload Images</h3>
+        <button class="modal-close" id="closeUploadModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="upload-area" id="uploadArea">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <path d="M32 40V16m0 0l-8 8m8-8l8 8M16 44v8a2 2 0 002 2h28a2 2 0 002-2v-8" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <h4>Drag & drop images here</h4>
+          <p>or click to browse</p>
+          <input type="file" id="imageInput" multiple accept="image/*" hidden>
+        </div>
+
+        <div class="upload-preview" id="uploadPreview"></div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelUploadBtn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="confirmUploadBtn" disabled>Upload</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Server Import Modal -->
+  <div class="modal" id="serverImportModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h3>Import from Server</h3>
+        <button class="modal-close" id="closeServerImportModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="file-browser">
+          <div class="browser-toolbar">
+            <button class="btn btn-sm" id="parentDirBtn" title="Go to parent directory">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M10 12l-4-4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              Up
+            </button>
+            <div class="current-path" id="currentPath">/data/ducbm3/DocumentOCR/dataset_public</div>
+            <button class="btn btn-sm btn-primary" id="selectAllBtn">Select All Images</button>
+          </div>
+
+          <div class="browser-content">
+            <div class="browser-list" id="browserList">
+              <!-- Directory items will be inserted here -->
+            </div>
+          </div>
+
+          <div class="browser-footer">
+            <div class="selected-count">
+              <span id="selectedCount">0</span> images selected
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelServerImportBtn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="confirmServerImportBtn" disabled>Import Selected</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Label Selection Modal -->
+  <div id="labelModal" class="label-modal-backdrop"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center;">
+    <div class="label-modal-content"
+      style="background: white; border-radius: 8px; width: 500px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column;">
+
+      <div class="modal-header"
+        style="padding: 16px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Select Label</h3>
+        <button id="closeModalBtn" style="background: none; border: none; cursor: pointer; color: #6b7280;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M6 6l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding: 16px; overflow-y: auto; max-height: 60vh;">
+        <div style="margin-bottom: 12px; font-size: 13px; color: #6b7280; font-weight: 500;">SUGGESTED LABELS</div>
+        <div id="modalLabelList" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+          <!-- Labels populated here -->
+        </div>
+
+        <div style="margin-bottom: 8px; font-size: 13px; color: #6b7280; font-weight: 500;">OR TYPE NEW LABEL</div>
+        <input type="text" id="customLabelInput" placeholder="Enter label name..."
+          style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; margin-bottom: 12px;">
+
+        <div id="readingOrderContainer">
+          <div style="margin-bottom: 8px; font-size: 13px; color: #6b7280; font-weight: 500;">READING ORDER (Optional)
+          </div>
+          <input type="number" id="readingOrderInput" placeholder="Auto (End)" min="0"
+            style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+        </div>
+
+        <div class="modal-actions" style="margin-top: 20px;">
+          <button id="cancelLabelBtn" class="btn btn-secondary">Hủy</button>
+          <button id="confirmLabelBtn" class="btn btn-primary">Xác nhận</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Folder Picker Modal (for Export Path) -->
+  <div class="modal" id="folderPickerModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h3>Chọn thư mục xuất dữ liệu</h3>
+        <button class="modal-close" id="closeFolderPicker">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="file-browser">
+          <div class="browser-toolbar">
+            <button class="btn btn-sm" id="folderParentDirBtn">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M10 12l-4-4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              Lên một cấp
+            </button>
+            <div class="current-path" id="folderCurrentPath">/data/ducbm3/DocumentOCR</div>
+          </div>
+          <div class="browser-content">
+            <div class="browser-list" id="folderBrowserList">
+              <!-- Folders populated here -->
+            </div>
+          </div>
+          <div style="margin-top: 15px; padding: 10px; background: var(--bg-secondary); border-radius: 4px;">
+            <label style="font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; display: block;">Tên thư mục mới
+              (tùy chọn):</label>
+            <input type="text" id="newFolderNameInput" class="form-input" placeholder="e.g., export_v1">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer"
+        style="padding: 15px 25px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-secondary" id="cancelFolderPicker">Hủy</button>
+        <button class="btn btn-primary" id="confirmFolderPicker">Chọn thư mục này</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resume Dataset Modal -->
+  <div id="resumeModal" class="modal">
+    <div class="modal-content modal-resume-enhanced">
+      <div class="modal-header-modern">
+        <div class="header-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h3>Tiếp tục công việc?</h3>
+      </div>
+
+      <div class="modal-body-modern">
+        <p class="resume-message">Hệ thống đã tự động lưu lại tiến trình của bạn. Bạn có muốn quay lại vị trí lần trước?
+        </p>
+
+        <div class="progress-section">
+          <div class="progress-stats">
+            <span class="progress-label">Hoàn thành</span>
+            <span class="progress-value" id="resumeProgressPercent">0%</span>
+          </div>
+          <div class="progress-bar-container">
+            <div id="resumeProgressBar" class="progress-bar-fill"></div>
+          </div>
+          <div class="progress-details">
+            <span>Ảnh thứ <strong id="lastImageIndex">0</strong> trên tổng số <strong
+                id="totalImagesCount">0</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-modern">
+        <button id="startFromBeginningBtn" class="btn btn-outline">Gán từ đầu</button>
+        <button id="resumeProgressBtn" class="btn btn-gradient">
+          Tiếp tục từ ảnh <span id="resumeIndexBtnText">X</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteConfirmModal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+        <h3 style="color: #ef4444;">Xóa Dataset</h3>
+        <button class="modal-close" id="closeDeleteModal">&times;</button>
+      </div>
+      <div class="modal-body" style="padding-top: 10px;">
+        <p style="margin-bottom: 20px; color: var(--text-primary);">Bạn có chắc chắn muốn xóa dataset này không? Hành
+          động này sẽ xóa tất cả ảnh và nhãn liên quan và không thể khôi phục.</p>
+        <div class="modal-actions" style="margin-top: 0;">
+          <button type="button" class="btn btn-secondary" id="cancelDeleteBtn">Hủy</button>
+          <button type="button" class="btn btn-primary" id="confirmDeleteBtn"
+            style="background-color: #ef4444; border-color: #ef4444;">Xóa vĩnh viễn</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js" defer></script>
+  <script src="/js/annotator.js" defer></script>
+  <script src="/js/server-import.js" defer></script>
+  <script src="/js/export.js" defer></script>
+
+  <!-- Content Editor Modal -->
+  <div id="contentEditorModal" class="modal">
+    <div class="modal-content"
+      style="max-width: 800px; width: 90%; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h3>Edit Content <span id="editorTitleLabel"
+            style="font-weight: normal; color: var(--text-secondary); font-size: 1rem; margin-left: 10px;"></span>
+        </h3>
+        <div style="flex: 1;"></div>
+        <button class="modal-close" id="closeEditorBtn">&times;</button>
+      </div>
+
+      <!-- Image and Editor Wrapper for layout control -->
+      <div id="editorLayoutWrapper"
+        style="display: flex; flex-direction: column; gap: 15px; flex: 1; overflow: hidden;">
+        <div class="image-preview-controls-container"
+          style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-height: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+            <div style="display: flex; gap: 8px;">
+              <button id="editorZoomInBtn" class="btn btn-sm btn-secondary"
+                style="padding: 2px 8px; font-weight: bold;">+</button>
+              <button id="editorZoomOutBtn" class="btn btn-sm btn-secondary"
+                style="padding: 2px 8px; font-weight: bold;">-</button>
+              <button id="editorZoomResetBtn" class="btn btn-sm btn-secondary"
+                style="padding: 2px 8px; font-size: 11px;">Reset</button>
+            </div>
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">Ctrl + Scroll to zoom</span>
+          </div>
+          <div class="image-preview-container"
+            style="display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 4px; overflow: auto; flex: 1; position: relative; border: 1px solid #e5e7eb;">
+            <!-- Centering Wrapper -->
+            <div
+              style="display: flex; align-items: center; justify-content: center; min-width: 100%; min-height: 100%;">
+              <img id="editorImagePreview" src="" alt="Annotation Crop"
+                style="max-width: 100%; max-height: 100%; width: auto; border: 1px solid #ccc; display: block; margin: auto;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Editor Container -->
+        <div id="editorContainer"
+          style="flex: 1; min-height: 200px; display: flex; flex-direction: column; border: 1px solid #e5e7eb; border-radius: 4px; background: white;">
+          <!-- Will be populated by JS -->
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="extract-controls" style="display: flex; gap: 8px; align-items: center;">
+          <select id="extractModelSelect" class="form-select"
+            style="padding: 6px; border-radius: 4px; border: 1px solid #d1d5db;">
+            <option value="qwen3_vl_local">Qwen3-VL (Local)</option>
+            <option value="mineru_2_5">MinerU 2.5</option>
+            <option value="olmocr2_0">olmOCR-2.0 (Local)</option>
+            <option value="gemini_flash_lite">Gemini Flash Lite</option>
+            <option value="gemma_3_27b_it">Gemma 3 (Gemini API)</option>
+          </select>
+          <button class="btn btn-secondary" id="extractContentBtn"
+            style="background-color: #8b5cf6; color: white; border: none; display: flex; align-items: center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+              <path
+                d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z">
+              </path>
+            </svg>
+            Extract
+          </button>
+          <button class="btn" id="splitLayoutsBtn"
+            style="background-color: #059669; color: white; border: none; display: none; align-items: center; gap: 4px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12h18M3 6h18M3 18h18" />
+            </svg>
+            Split Layouts
+          </button>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn btn-secondary" id="prevEditorBtn"
+            style="padding: 6px 12px; font-size: 13px; display:flex; align-items:center; gap:4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Prev
+          </button>
+          <span id="editorNavLabel"
+            style="font-size:12px; color:var(--text-secondary); min-width:48px; text-align:center;"></span>
+          <button class="btn btn-secondary" id="nextEditorBtn"
+            style="padding: 6px 12px; font-size: 13px; display:flex; align-items:center; gap:4px;">
+            Next
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" id="cancelEditorBtn">Cancel</button>
+          <button class="btn btn-primary" id="saveEditorBtn">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay for Clean Data -->
+  <div id="loadingOverlay" class="modal">
+    <div class="modal-content" style="max-width: 450px; text-align: center; padding: 2.5rem; background: var(--bg-secondary); border-radius: var(--radius-xl); border: 1px solid var(--border-color); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+      <div class="loading-spinner" style="margin: 0 auto 2rem; width: 50px; height: 50px; border: 4px solid rgba(249, 115, 22, 0.1); border-top: 4px solid #f97316; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      <h3 class="loading-text" style="color: var(--text-primary); margin-bottom: 1.5rem; font-size: 1.25rem; font-weight: 700;">Cleaning dataset...</h3>
+      
+      <div class="progress-section" style="background: var(--bg-tertiary); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+        <div class="progress-container" style="width: 100%; height: 10px; background: rgba(0,0,0,0.2); border-radius: 5px; overflow: hidden; margin-bottom: 1rem;">
+          <div class="progress-bar-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #f97316, #ea580c); transition: width 0.3s ease;"></div>
+        </div>
+        <div class="progress-percentage" style="font-weight: 800; color: #f97316; font-size: 1.25rem; letter-spacing: 0.05em;">0%</div>
+      </div>
+      
+      <p style="margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.875rem; font-style: italic;">Processing images in parallel to save time...</p>
+    </div>
+  </div>
+  
+  <style>
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</body>
+
+</html>
+
+<style>
+  .btn-duplicate-active {
+    background-color: #ef4444 !important;
+    border-color: #ef4444 !important;
+    color: #fff !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.4);
+  }
+  
+  .image-item.duplicate-border {
+    border: 3px solid #ef4444 !important;
+  }
+  .modal-large {
+    max-width: 900px;
+    max-height: 80vh;
+  }
+
+  .file-browser {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 500px;
+  }
+
+  .browser-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+  }
+
+  .current-path {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-primary);
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .browser-content {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+  }
+
+  .browser-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .browser-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .browser-item:hover {
+    background: var(--bg-secondary);
+  }
+
+  .browser-item.selected {
+    background: rgba(99, 102, 241, 0.1);
+  }
+
+  .browser-item.directory {
+    font-weight: 500;
+  }
+
+  .browser-item-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--text-secondary);
+  }
+
+  .browser-item-icon.directory {
+    color: var(--primary-color);
+  }
+
+  .browser-item-icon.image {
+    color: var(--success-color);
+  }
+
+  .browser-item-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .browser-item-name {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+  }
+
+  .browser-item-meta {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .browser-item-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+
+  .browser-footer {
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 500;
+  }
+
+  .selected-count {
+    color: var(--primary-color);
+  }
+</style>

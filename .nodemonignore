@@ -1,0 +1,7 @@
+data/
+brain/
+public/
+node_modules/
+*.sqlite
+*.db
+*.log
