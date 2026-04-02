@@ -2404,7 +2404,7 @@ function render() {
                 ctx.strokeStyle = '#ef4444'; // Red flash
                 ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
             } else {
-                ctx.strokeStyle = isSelected ? '#f59e0b' : (isBbox2Poly || isPoly2Bbox ? '#10b981' : labelColor);
+                ctx.strokeStyle = isSelected ? '#f59e0b' : labelColor;
             }
             
             ctx.lineWidth = isSelected || isBlinkingNow ? 3 : 2;
@@ -2473,7 +2473,7 @@ function render() {
                 ctx.strokeStyle = '#ef4444';
                 ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
             } else {
-                ctx.strokeStyle = isSelected ? '#f59e0b' : (isPoly2Bbox ? '#10b981' : labelColor);
+                ctx.strokeStyle = isSelected ? '#f59e0b' : labelColor;
                 ctx.fillStyle = isSelected ? 'rgba(245, 158, 11, 0.2)' : getRgbaColor(labelColor, 0.2);
             }
             ctx.lineWidth = isSelected || isBlinkingNow ? 3 : 2;
@@ -2537,8 +2537,9 @@ function render() {
             }
         } else if (ann.type === 'keypoint') {
             const point = imageToScreen(ann.x, ann.y);
+            const labelColor = getStringColor(ann.label);
 
-            ctx.fillStyle = isSelected ? '#f59e0b' : '#10b981';
+            ctx.fillStyle = isSelected ? '#f59e0b' : labelColor;
             ctx.beginPath();
             ctx.arc(point.x, point.y, isSelected ? 6 : 4, 0, Math.PI * 2);
             ctx.fill();
