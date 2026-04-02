@@ -304,9 +304,7 @@ function initCanvas() {
     });
 
     canvas.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
-    canvas.addEventListener('contextmenu', e => { if (e.button === 1) e.preventDefault(); });
-
-    // Double click to edit label
+    canvas.addEventListener('contextmenu', handleContextMenu);
     canvas.addEventListener('dblclick', handleDoubleClick);
 
     // Initial render
@@ -1206,49 +1204,55 @@ function handleDoubleClick(e) {
     if (Date.now() - lastMoveTime < 300) return;
 
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    // Find annotation under cursor using unified hit detection
     const clickedAnn = findAnnotationAt(e.clientX - rect.left, e.clientY - rect.top);
-
     if (clickedAnn) {
-        showLabelModal((newLabel, newRO) => {
-            if (newLabel) {
-                clickedAnn.label = newLabel;
+        editAnnotationLabel(clickedAnn);
+    }
+}
 
-                // Handle Reading Order Move
-                if (newRO !== null && newRO !== clickedAnn.reading_order) {
-                    const idx = annotations.indexOf(clickedAnn);
-                    if (idx > -1) annotations.splice(idx, 1);
+function handleContextMenu(e) {
+    e.preventDefault(); // Always suppress browser menu on canvas
+    if (!currentImage) return;
 
-                    // Re-index remaining temporarily to ensure gaps are closed
-                    // (Though splice closes gaps in array, reading_order property might be stale)
-                    // Actually, we should just rely on array position for reading_order usually.
-                    // But here we want to force explicit reading_order.
+    // Special case for polygon: right click is used to finish
+    if (currentTool === 'polygon' && tempPoints.length > 0) {
+        return; 
+    }
 
-                    // Target insertion index
-                    let insertIdx = newRO;
-                    if (insertIdx < 0) insertIdx = 0;
-                    if (insertIdx > annotations.length) insertIdx = annotations.length;
+    const rect = canvas.getBoundingClientRect();
+    const clickedAnn = findAnnotationAt(e.clientX - rect.left, e.clientY - rect.top);
+    if (clickedAnn) {
+        editAnnotationLabel(clickedAnn);
+    }
+}
 
-                    annotations.splice(insertIdx, 0, clickedAnn);
+function editAnnotationLabel(clickedAnn) {
+    showLabelModal((newLabel, newRO) => {
+        if (newLabel) {
+            clickedAnn.label = newLabel;
 
-                    // Update all reading_orders to match new array order
-                    annotations.forEach((a, i) => a.reading_order = i);
+            // Handle Reading Order Move
+            if (newRO !== null && newRO !== clickedAnn.reading_order) {
+                const idx = annotations.indexOf(clickedAnn);
+                if (idx > -1) annotations.splice(idx, 1);
+
+                let targetIdx = annotations.findIndex(a => (a.reading_order || 0) >= newRO);
+                if (targetIdx === -1) {
+                    annotations.push(clickedAnn);
                 } else {
-                    // Update reading_order for clickedAnn if it was null?
-                    if (clickedAnn.reading_order === undefined || clickedAnn.reading_order === null) {
-                        clickedAnn.reading_order = annotations.indexOf(clickedAnn);
-                    }
+                    annotations.splice(targetIdx, 0, clickedAnn);
                 }
 
-                render();
-                renderAnnotationsList();
-                saveAnnotations();
+                // Normalise reading_order for all
+                annotations.forEach((a, i) => a.reading_order = i);
+                sortLayouts();
             }
-        }, clickedAnn.label, clickedAnn.reading_order);
-    }
+
+            render();
+            renderAnnotationsList();
+            debouncedSave();
+        }
+    }, clickedAnn.label, clickedAnn.reading_order);
 }
 
 
@@ -1260,6 +1264,7 @@ function handleMouseDown(e) {
 
     // Ignore right-click for everything except polygon tool
     // (Polygon tool uses right-click/double-click to finish)
+    // Other tools will be handled by the contextmenu event
     if (e.button === 2 && currentTool !== 'polygon') {
         return;
     }
@@ -3865,10 +3870,12 @@ function showContentEditor(ann) {
             const srcIdx = annotations.indexOf(ann);
             annotations.splice(srcIdx, 1);
 
-            // Insert new annotations at same position
+            // Insert new annotations at same position and collect them for selection
             const baseRO = (ann.reading_order ?? annotations.length);
+            const newAnns = [];
+            
             layouts.forEach((l, i) => {
-                annotations.splice(srcIdx + i, 0, {
+                const newAnn = {
                     id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
                     type: 'bbox',
                     label: l.label,
@@ -3876,11 +3883,18 @@ function showContentEditor(ann) {
                     width: l.width, height: l.height,
                     content: l.content || '',
                     reading_order: baseRO + i
-                });
+                };
+                annotations.splice(srcIdx + i, 0, newAnn);
+                newAnns.push(newAnn);
             });
 
-            if (selectedAnnotation === ann) selectedAnnotation = null;
+            // Auto-select results for immediate editing
+            selectedAnnotations.clear();
+            newAnns.forEach(na => selectedAnnotations.add(na));
+            selectedAnnotation = newAnns.length > 0 ? newAnns[0] : null;
+
             renderAnnotationsList();
+            updateToolbarState(); // Synch UI indicators
             render();
             debouncedSave();
 
