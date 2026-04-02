@@ -1306,6 +1306,27 @@ function handleMouseDown(e) {
             }
         }
 
+        // Polygon keypoint hit (Prioritize over selection toggling in Rotate/Manual Sort)
+        if (selectedAnnotation && selectedAnnotation.type === 'polygon' && selectedAnnotation.points) {
+            const kpIdx = getPolygonKeypointAt(pt, selectedAnnotation);
+            if (kpIdx !== -1) {
+                isDraggingPoint = true;
+                draggingPointIndex = kpIdx;
+                hasMoved = false;
+                return;
+            }
+        }
+
+        // BBox resize handles (Prioritize over selection toggling in Rotate/Manual Sort)
+        if ((currentTool === 'select' || currentTool === 'poly2bbox' || currentTool === 'rotate') && selectedAnnotation && selectedAnnotation.type === 'bbox') {
+            const handle = getResizeHandle(pt, selectedAnnotation);
+            if (handle) {
+                isResizing = true;
+                resizeHandle = handle;
+                return;
+            }
+        }
+
         // Multi-select with Ctrl or Tool Selection Box (Rotate / Manual Sort)
         if (e.ctrlKey || currentTool === 'rotate' || currentTool === 'manual_sort') {
             if (clicked) {
@@ -1336,26 +1357,7 @@ function handleMouseDown(e) {
             }
         }
 
-        // Polygon keypoint hit
-        if (selectedAnnotation && selectedAnnotation.type === 'polygon' && selectedAnnotation.points) {
-            const kpIdx = getPolygonKeypointAt(pt, selectedAnnotation);
-            if (kpIdx !== -1) {
-                isDraggingPoint = true;
-                draggingPointIndex = kpIdx;
-                hasMoved = false;
-                return;
-            }
-        }
 
-        // BBox resize handles
-        if ((currentTool === 'select' || currentTool === 'poly2bbox') && selectedAnnotation && selectedAnnotation.type === 'bbox') {
-            const handle = getResizeHandle(pt, selectedAnnotation);
-            if (handle) {
-                isResizing = true;
-                resizeHandle = handle;
-                return;
-            }
-        }
 
         if (clicked) {
             if (currentTool === 'bbox2poly' && clicked.type === 'bbox') {
@@ -1539,7 +1541,7 @@ function handleMouseMove(e) {
     }
 
     // --- IDLE PATH: update cursor / hover handles (only runs when not manipulating) ---
-    if ((currentTool === 'select' || currentTool === 'bbox2poly' || currentTool === 'poly2bbox') && selectedAnnotation && !isDragging && !isResizing && !isDraggingPoint) {
+    if ((currentTool === 'select' || currentTool === 'bbox2poly' || currentTool === 'poly2bbox' || currentTool === 'rotate') && selectedAnnotation && !isDragging && !isResizing && !isDraggingPoint) {
         if (selectedAnnotation.type === 'polygon' && selectedAnnotation.points) {
             const kpIdx = getPolygonKeypointAt(pt, selectedAnnotation);
             canvas.style.cursor = kpIdx !== -1 ? 'crosshair' : 'default';
@@ -1555,7 +1557,7 @@ function handleMouseMove(e) {
                     imageToScreen(selectedAnnotation.x, selectedAnnotation.y + selectedAnnotation.height)
                 ];
                 canvas.style.cursor = corners.some(c => distSq(sPt, c) < HIT * HIT) ? 'crosshair' : 'default';
-            } else if (currentTool === 'select' || isPoly2Bbox) {
+            } else if (currentTool === 'select' || isPoly2Bbox || currentTool === 'rotate') {
                 const handle = getResizeHandle(pt, selectedAnnotation);
                 if (handle) {
                     canvas.style.cursor = (handle === 'nw' || handle === 'se') ? 'nwse-resize' : 'nesw-resize';
@@ -2414,8 +2416,8 @@ function render() {
                 ctx.fillRect(start.x, start.y, end.x - start.x, end.y - start.y);
             }
 
-            // In bbox2poly or poly2bbox mode show draggable corner handles
-            if ((isBbox2Poly || isPoly2Bbox) && isSelected) {
+            // In bbox2poly, poly2bbox, or rotate mode show draggable corner handles
+            if ((isBbox2Poly || isPoly2Bbox || currentTool === 'rotate') && isSelected) {
                 const corners = [start, { x: end.x, y: start.y }, end, { x: start.x, y: end.y }];
                 corners.forEach(c => {
                     ctx.fillStyle = '#f59e0b';
