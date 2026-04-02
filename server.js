@@ -87,7 +87,7 @@ async function isAlmostWhite(imagePath, x1, y1, x2, y2) {
         // Scale to 1x1 and output raw grayscale byte
         const { stdout } = await execAsync(`ffmpeg -v error -i "${imagePath}" -vf "crop=${w}:${h}:${x}:${y},scale=1:1" -f image2pipe -vcodec rawvideo -pix_fmt gray -`, { encoding: 'buffer', timeout: 3000 });
         if (stdout && stdout.length > 0) {
-            return intensity > 250; // Threshold: ~98% white (reverted from 99% for better reliability)
+            return stdout[0] > 252; // Threshold: ~99% white (updated from 98% per user request)
         }
     } catch (e) { console.error(`[Whiteness Error] ${e.message}`); }
     return false;

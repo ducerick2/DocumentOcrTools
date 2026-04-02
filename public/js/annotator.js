@@ -202,7 +202,7 @@ function initCanvas() {
             document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentTool = btn.dataset.tool;
-            canvas.style.cursor = (currentTool === 'select' || currentTool === 'bbox2poly' || currentTool === 'rotate' || currentTool === 'manual_sort') ? 'default' : 'crosshair';
+            canvas.style.cursor = (currentTool === 'select' || currentTool === 'bbox2poly' || currentTool === 'poly2bbox' || currentTool === 'rotate' || currentTool === 'manual_sort') ? 'default' : 'crosshair';
 
             resetManipulationSliders();
             manualSortSequence = []; // Reset sequence on tool change
@@ -218,6 +218,12 @@ function initCanvas() {
             if (currentTool === 'bbox2poly' && selectedAnnotation && selectedAnnotation.type === 'bbox') {
                 convertBboxToPoly(selectedAnnotation);
                 render();
+            }
+            if (currentTool === 'poly2bbox' && selectedAnnotation && (selectedAnnotation.type === 'polygon' || selectedAnnotation.type === 'poly')) {
+                convertPolyToBbox(selectedAnnotation);
+                render();
+                renderAnnotationsList();
+                debouncedSave();
             }
 
             render(); // Ensure canvas updates (e.g. clear sequence numbers)
@@ -1282,7 +1288,7 @@ function handleMouseDown(e) {
         saveUndoState();
     }
 
-    if (currentTool === 'select' || currentTool === 'bbox2poly' || currentTool === 'rotate' || currentTool === 'manual_sort') {
+    if (currentTool === 'select' || currentTool === 'bbox2poly' || currentTool === 'poly2bbox' || currentTool === 'rotate' || currentTool === 'manual_sort') {
         const clicked = findAnnotationAt(x, y);
 
         // Manual Sort sequence clicking
@@ -1342,7 +1348,7 @@ function handleMouseDown(e) {
         }
 
         // BBox resize handles
-        if (currentTool === 'select' && selectedAnnotation && selectedAnnotation.type === 'bbox') {
+        if ((currentTool === 'select' || currentTool === 'poly2bbox') && selectedAnnotation && selectedAnnotation.type === 'bbox') {
             const handle = getResizeHandle(pt, selectedAnnotation);
             if (handle) {
                 isResizing = true;
@@ -1363,6 +1369,13 @@ function handleMouseDown(e) {
                     hasMoved = false;
                     return;
                 }
+            } else if (currentTool === 'poly2bbox' && (clicked.type === 'polygon' || clicked.type === 'poly')) {
+                convertPolyToBbox(clicked);
+                selectAnnotation(clicked);
+                render();
+                renderAnnotationsList();
+                debouncedSave();
+                return; // Conversion complete, handle as normal selection from here
             } else {
                 // If clicked is NOT in the current selection, select it normally (clears others)
                 // If it IS in the selection, keep the group for multi-drag
@@ -1526,11 +1539,12 @@ function handleMouseMove(e) {
     }
 
     // --- IDLE PATH: update cursor / hover handles (only runs when not manipulating) ---
-    if ((currentTool === 'select' || currentTool === 'bbox2poly') && selectedAnnotation && !isDragging && !isResizing && !isDraggingPoint) {
+    if ((currentTool === 'select' || currentTool === 'bbox2poly' || currentTool === 'poly2bbox') && selectedAnnotation && !isDragging && !isResizing && !isDraggingPoint) {
         if (selectedAnnotation.type === 'polygon' && selectedAnnotation.points) {
             const kpIdx = getPolygonKeypointAt(pt, selectedAnnotation);
             canvas.style.cursor = kpIdx !== -1 ? 'crosshair' : 'default';
         } else if (selectedAnnotation.type === 'bbox') {
+            const isPoly2Bbox = currentTool === 'poly2bbox';
             if (currentTool === 'bbox2poly') {
                 const sPt = imageToScreen(pt.x, pt.y);
                 const HIT = 10;
@@ -1541,7 +1555,7 @@ function handleMouseMove(e) {
                     imageToScreen(selectedAnnotation.x, selectedAnnotation.y + selectedAnnotation.height)
                 ];
                 canvas.style.cursor = corners.some(c => distSq(sPt, c) < HIT * HIT) ? 'crosshair' : 'default';
-            } else {
+            } else if (currentTool === 'select' || isPoly2Bbox) {
                 const handle = getResizeHandle(pt, selectedAnnotation);
                 if (handle) {
                     canvas.style.cursor = (handle === 'nw' || handle === 'se') ? 'nwse-resize' : 'nesw-resize';
@@ -1765,6 +1779,24 @@ function getPolygonKeypointAt(pt, ann) {
 }
 
 // Convert a bbox annotation to a polygon (in-place). Returns the annotation.
+function convertPolyToBbox(ann) {
+    if ((ann.type !== 'polygon' && ann.type !== 'poly') || !ann.points || ann.points.length === 0) return ann;
+    const xs = ann.points.map(p => p.x);
+    const ys = ann.points.map(p => p.y);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs);
+    const maxY = Math.max(...ys);
+
+    ann.type = 'bbox';
+    ann.x = minX;
+    ann.y = minY;
+    ann.width = maxX - minX;
+    ann.height = maxY - minY;
+    // Keep points if they exist for possible revert/compatibility
+    return ann;
+}
+
 function convertBboxToPoly(ann) {
     const { x, y, width, height } = ann;
     ann.type = 'polygon';
@@ -2359,12 +2391,13 @@ function render() {
             const end = imageToScreen(ann.x + ann.width, ann.y + ann.height);
 
             const isBbox2Poly = currentTool === 'bbox2poly';
+            const isPoly2Bbox = currentTool === 'poly2bbox';
             
             if (isBlinkingNow) {
                 ctx.strokeStyle = '#ef4444'; // Red flash
                 ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
             } else {
-                ctx.strokeStyle = isSelected ? '#f59e0b' : (isBbox2Poly ? '#10b981' : labelColor);
+                ctx.strokeStyle = isSelected ? '#f59e0b' : (isBbox2Poly || isPoly2Bbox ? '#10b981' : labelColor);
             }
             
             ctx.lineWidth = isSelected || isBlinkingNow ? 3 : 2;
@@ -2381,8 +2414,8 @@ function render() {
                 ctx.fillRect(start.x, start.y, end.x - start.x, end.y - start.y);
             }
 
-            // In bbox2poly mode show draggable corner handles
-            if (isBbox2Poly && isSelected) {
+            // In bbox2poly or poly2bbox mode show draggable corner handles
+            if ((isBbox2Poly || isPoly2Bbox) && isSelected) {
                 const corners = [start, { x: end.x, y: start.y }, end, { x: start.x, y: end.y }];
                 corners.forEach(c => {
                     ctx.fillStyle = '#f59e0b';
@@ -2424,18 +2457,20 @@ function render() {
                 ctx.fillStyle = isSelected ? '#f59e0b' : labelColor;
                 ctx.fillText(labelText, start.x + 2 + roWidth, start.y - 3);
             }
-        } else if (ann.type === 'polygon') {
+        } else if (ann.type === 'polygon' || ann.type === 'poly') {
             const labelColor = getStringColor(ann.label);
             const isBlinkingNow = isBlinkEnabled && ann._isBlinking && isBlinkPhase;
+            const isPoly2Bbox = currentTool === 'poly2bbox';
 
             if (isBlinkingNow) {
                 ctx.strokeStyle = '#ef4444';
                 ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
             } else {
-                ctx.strokeStyle = isSelected ? '#f59e0b' : labelColor;
+                ctx.strokeStyle = isSelected ? '#f59e0b' : (isPoly2Bbox ? '#10b981' : labelColor);
                 ctx.fillStyle = isSelected ? 'rgba(245, 158, 11, 0.2)' : getRgbaColor(labelColor, 0.2);
             }
             ctx.lineWidth = isSelected || isBlinkingNow ? 3 : 2;
+            if (isPoly2Bbox && isSelected) ctx.setLineDash([6, 3]);
 
             ctx.beginPath();
             const firstPoint = imageToScreen(ann.points[0].x, ann.points[0].y);
@@ -3504,6 +3539,10 @@ document.addEventListener('keydown', (e) => {
         // Activate BBox to Poly tool
         const eBtn = document.querySelector('[data-tool="bbox2poly"]');
         if (eBtn) eBtn.click();
+    } else if (e.key.toLowerCase() === 'f') {
+        // Activate Poly to BBox tool
+        const fBtn = document.querySelector('[data-tool="poly2bbox"]');
+        if (fBtn) fBtn.click();
     } else if (e.key.toLowerCase() === 'r') {
         // Activate Rotate tool
         const rBtn = document.querySelector('[data-tool="rotate"]');

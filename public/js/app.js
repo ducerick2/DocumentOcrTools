@@ -433,8 +433,8 @@ document.getElementById('checkDuplicateBtn').addEventListener('click', async () 
                         }
 
                         if (data.success) {
-                            duplicateImageIds = new Set(data.problematicImageIds);
-                            duplicateModeActive = true;
+                            window.duplicateImageIds = new Set(data.problematicImageIds.map(id => String(id)));
+                            window.duplicateModeActive = true;
                             btn.classList.add('btn-duplicate-active');
                             
                             // Use setTimeout to allow UI to render the 100% progress before blocking alert
