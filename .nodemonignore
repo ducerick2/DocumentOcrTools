@@ -2,6 +2,7 @@ data/
 brain/
 public/
 node_modules/
+dataset_public/
 *.sqlite
 *.db
 *.log

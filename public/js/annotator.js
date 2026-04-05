@@ -215,15 +215,31 @@ function initCanvas() {
             updateToolbarState();
 
             // When switching to bbox2poly and a bbox is selected, convert it right away
-            if (currentTool === 'bbox2poly' && selectedAnnotation && selectedAnnotation.type === 'bbox') {
-                convertBboxToPoly(selectedAnnotation);
-                render();
+            if (currentTool === 'bbox2poly') {
+                const targets = selectedAnnotations.size > 0 ? Array.from(selectedAnnotations) : (selectedAnnotation ? [selectedAnnotation] : []);
+                let converted = false;
+                targets.forEach(ann => {
+                    if (ann && ann.type === 'bbox') {
+                        convertBboxToPoly(ann);
+                        converted = true;
+                    }
+                });
+                if (converted) render();
             }
-            if (currentTool === 'poly2bbox' && selectedAnnotation && (selectedAnnotation.type === 'polygon' || selectedAnnotation.type === 'poly')) {
-                convertPolyToBbox(selectedAnnotation);
-                render();
-                renderAnnotationsList();
-                debouncedSave();
+            if (currentTool === 'poly2bbox') {
+                const targets = selectedAnnotations.size > 0 ? Array.from(selectedAnnotations) : (selectedAnnotation ? [selectedAnnotation] : []);
+                let converted = false;
+                targets.forEach(ann => {
+                    if (ann && (ann.type === 'polygon' || ann.type === 'poly')) {
+                        convertPolyToBbox(ann);
+                        converted = true;
+                    }
+                });
+                if (converted) {
+                    render();
+                    renderAnnotationsList();
+                    debouncedSave();
+                }
             }
 
             render(); // Ensure canvas updates (e.g. clear sequence numbers)
@@ -2758,8 +2774,10 @@ function showLabelModal(onSelect, prefillLabel = null, prefillReadingOrder = nul
     closeBtn.onclick = cancelModal;
 
     // Populate suggestions
-    Array.from(labelSelect.options).forEach(opt => {
-        if (!opt.value) return;
+    const validOptions = Array.from(labelSelect.options).filter(opt => opt.value);
+    validOptions.sort((a, b) => a.value.localeCompare(b.value));
+
+    validOptions.forEach(opt => {
 
         const btn = document.createElement('div');
         btn.textContent = opt.text;
@@ -3496,28 +3514,49 @@ document.addEventListener('keydown', (e) => {
     } else if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
         saveAnnotations();
-    } else if (e.ctrlKey && e.key.toLowerCase() === 'a') {
-        // Select All: works in select, rotate, and manual_sort modes
-        if (currentTool === 'select' || currentTool === 'rotate' || currentTool === 'manual_sort') {
-            e.preventDefault();
-            selectedAnnotations.clear();
-            annotations.forEach(ann => {
-                // Respect label filter if active
-                if (currentLabel && ann.label !== currentLabel) return;
-                // Respect sidebar multiselect filter
-                if (visibleLabels !== null && !visibleLabels.has(ann.label)) return;
-                // Respect hidden status
-                if (hiddenAnnotations.has(ann)) return;
-
-                selectedAnnotations.add(ann);
+    } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        const targets = selectedAnnotations.size > 0 ? Array.from(selectedAnnotations) : (selectedAnnotation ? [selectedAnnotation] : []);
+        if (targets.length > 0 && currentImage) {
+            saveUndoState();
+            targets.forEach(ann => {
+                ann.x = 0;
+                ann.y = 0;
+                ann.width = currentImage.width;
+                ann.height = currentImage.height;
+                if (ann.type === 'polygon' || ann.type === 'poly') {
+                    ann.points = [
+                        {x: 0, y: 0},
+                        {x: currentImage.width, y: 0},
+                        {x: currentImage.width, y: currentImage.height},
+                        {x: 0, y: currentImage.height}
+                    ];
+                }
             });
-
-            selectedAnnotation = selectedAnnotations.size > 0 ? [...selectedAnnotations][0] : null;
-
             render();
-            renderAnnotationsList();
-            updateToolbarState();
+            debouncedSave();
         }
+    } else if (e.ctrlKey && e.key.toLowerCase() === 'a') {
+        // Select All: works in all modes now
+        e.preventDefault();
+        selectedAnnotations.clear();
+        annotations.forEach(ann => {
+            // Respect label filter if active
+            if (currentLabel && ann.label !== currentLabel) return;
+            // Respect sidebar multiselect filter
+            if (visibleLabels !== null && !visibleLabels.has(ann.label)) return;
+            // Respect hidden status
+            if (hiddenAnnotations.has(ann)) return;
+
+            selectedAnnotations.add(ann);
+        });
+        
+        // If single selection tracking exists, assign first
+        selectedAnnotation = selectedAnnotations.size > 0 ? [...selectedAnnotations][0] : null;
+
+        render();
+        renderAnnotationsList();
+        updateToolbarState();
     } else if (e.ctrlKey && e.key.toLowerCase() === 'd') {
         // Duplicate selected annotations
         if (currentTool === 'select' || currentTool === 'rotate') {
@@ -4114,4 +4153,102 @@ function mergeSelectedAnnotations() {
     }
 }
 
+// Image rotation capability
+let isRotating = false;
 
+document.addEventListener('DOMContentLoaded', () => {
+    const rotateBtn = document.getElementById('btnRotateImage');
+    if (rotateBtn) {
+        rotateBtn.addEventListener('click', async () => {
+            if (!currentImageId || !currentImage || isRotating) return;
+            
+            isRotating = true;
+            document.getElementById('canvasStatus').textContent = 'Rotating image...';
+            rotateBtn.style.opacity = '0.5';
+            rotateBtn.style.pointerEvents = 'none';
+            
+            try {
+                // 1. Send rotate request to backend
+                const res = await fetch(`${API_BASE}/images/${currentImageId}/rotate`, { method: 'POST' });
+                const data = await res.json();
+                
+                if (!res.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to rotate image');
+                }
+                
+                // 2. Map coordinates mathematically for 90 CW rotation
+                const oldHeight = currentImage.height;
+                const oldWidth = currentImage.width;
+                
+                saveUndoState();
+                
+                annotations.forEach(ann => {
+                    if (ann.imageWidth) ann.imageWidth = data.width;
+                    if (ann.imageHeight) ann.imageHeight = data.height;
+
+                    if (ann.type === 'polygon' && ann.points) {
+                        ann.points.forEach(pt => {
+                            const oldX = pt.x;
+                            const oldY = pt.y;
+                            pt.x = oldHeight - oldY;
+                            pt.y = oldX;
+                        });
+                        
+                        const xs = ann.points.map(p => p.x);
+                        const ys = ann.points.map(p => p.y);
+                        ann.x = Math.min(...xs);
+                        ann.y = Math.min(...ys);
+                        ann.width = Math.max(...xs) - ann.x;
+                        ann.height = Math.max(...ys) - ann.y;
+                    } 
+                    else if (ann.type === 'bbox' || ann.type === 'keypoint') {
+                        const oldX = ann.x;
+                        const oldY = ann.y;
+                        const oldW = ann.width;
+                        const oldH = ann.height;
+                        
+                        ann.x = oldHeight - (oldY + oldH);
+                        ann.y = oldX;
+                        ann.width = oldH;
+                        ann.height = oldW;
+                    }
+                });
+                
+                // 3. Force save
+                await saveAnnotations();
+                
+                // 4. Invalidate prefetch cache so it fetches the new rotated image
+                prefetchCache.delete(currentImageId);
+                
+                // 5. Append cache bust hash to the stored dataset paths and reload
+                const imgNode = document.querySelector(`.image-item[data-id="${currentImageId}"]`);
+                let basePath = imgNode ? imgNode.dataset.path : currentImage.src;
+                
+                let newPath = basePath;
+                if (newPath.includes('?t=')) {
+                    newPath = newPath.replace(/\?t=\d+/, `?t=` + Date.now());
+                } else {
+                    newPath += `?t=` + Date.now();
+                }
+                
+                if (imgNode) imgNode.dataset.path = newPath;
+                
+                if (window.datasetImages) {
+                    const idx = window.datasetImages.findIndex(img => String(img.id) === String(currentImageId));
+                    if (idx !== -1) window.datasetImages[idx].path = newPath;
+                }
+                
+                loadImageInCanvas(newPath, currentImageId, true);
+                
+            } catch (error) {
+                console.error("Rotation error:", error);
+                alert("Error rotating image: " + error.message);
+                document.getElementById('canvasStatus').textContent = 'Error rotating';
+            } finally {
+                isRotating = false;
+                rotateBtn.style.opacity = '1';
+                rotateBtn.style.pointerEvents = 'auto';
+            }
+        });
+    }
+});

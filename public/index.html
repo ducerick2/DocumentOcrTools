@@ -126,22 +126,26 @@
               </svg>
               Import from Server
             </button>
-            <button class="btn btn-secondary" id="checkDuplicateBtn" style="color: #fff; font-weight: 600; background-color: #64748b; margin-right: 8px;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            <button class="btn btn-secondary" id="checkDuplicateBtn"
+              style="color: #fff; font-weight: 600; background-color: #64748b; margin-right: 8px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
               </svg>
               Check Duplicate
             </button>
-            <button class="btn btn-warning" id="cleanDataBtn" style="background-color: #f97316; border-color: #f97316; color: #fff; font-weight: 600;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18.8 13.1a3 3 0 0 0-3.3-3.3L3 21l1.1 1.1L15.2 11a3 3 0 0 0 3.6 2.1Z"/>
-                <path d="M11.9 15.8c.2-.2.4-.4.6-.7"/>
-                <path d="M15.2 12.5c-.2.2-.4.4-.7.6"/>
-                <path d="M9 13l-4 4"/>
-                <path d="M11 11l-4 4"/>
-                <path d="M8 8l-4 4"/>
-                <path d="M13 14l-4 4"/>
+            <button class="btn btn-warning" id="cleanDataBtn"
+              style="background-color: #f97316; border-color: #f97316; color: #fff; font-weight: 600;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18.8 13.1a3 3 0 0 0-3.3-3.3L3 21l1.1 1.1L15.2 11a3 3 0 0 0 3.6 2.1Z" />
+                <path d="M11.9 15.8c.2-.2.4-.4.6-.7" />
+                <path d="M15.2 12.5c-.2.2-.4.4-.7.6" />
+                <path d="M9 13l-4 4" />
+                <path d="M11 11l-4 4" />
+                <path d="M8 8l-4 4" />
+                <path d="M13 14l-4 4" />
               </svg>
               Clean Data
             </button>
@@ -172,8 +176,7 @@
                 <path d="M10 3l7 4v6l-7 4-7-4V7l7-4z" stroke="currentColor" stroke-width="1.5" />
               </svg>
             </button>
-            <button class="tool-btn" data-tool="poly2bbox"
-              title="Poly → BBox (Convert polygon to bounding box) [F]">
+            <button class="tool-btn" data-tool="poly2bbox" title="Poly → BBox (Convert polygon to bounding box) [F]">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M6 6l8-1 2 7-7 4-5-5 2-5z" stroke="currentColor" stroke-width="1" stroke-dasharray="2 1" />
                 <rect x="4" y="4" width="12" height="12" stroke="currentColor" stroke-width="1.5" />
@@ -385,6 +388,14 @@
 
           <div class="canvas-panel">
             <div class="canvas-container" id="canvasContainer">
+              <button id="btnRotateImage" class="tool-btn" title="Rotate Image 90° CW"
+                style="position: absolute; top: 15px; right: 30px; z-index: 100; background: var(--bg-tertiary); box-shadow: 0 4px 6px rgba(0,0,0,0.3); border-radius: 6px; padding: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 2v6h-6"></path>
+                  <path d="M21 13a9 9 0 1 1-3-7.7L21 8"></path>
+                </svg>
+              </button>
               <canvas id="annotationCanvas"></canvas>
               <div id="verticalScrollbar"
                 style="position: absolute; right: 0; top: 0; bottom: 0; width: 14px; overflow-y: scroll; overflow-x: hidden; z-index: 10; display: none;">
@@ -394,12 +405,16 @@
 
             <div class="canvas-status">
               <span id="canvasStatus">No image selected</span>
-              <div class="search-box-container" style="display: flex; align-items: center; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 2px 8px; margin: 0 15px; width: 300px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--text-secondary); margin-right: 6px;">
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+              <div class="search-box-container"
+                style="display: flex; align-items: center; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 2px 8px; margin: 0 15px; width: 300px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  style="color: var(--text-secondary); margin-right: 6px;">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
                 </svg>
-                <input type="text" id="statusSearchInput" placeholder="Go to image..." title="Enter image name and press Enter to jump" 
-                       style="background: transparent; color: var(--text-primary); border: none; font-size: 0.75rem; width: 100%; outline: none;">
+                <input type="text" id="statusSearchInput" placeholder="Go to image..."
+                  title="Enter image name and press Enter to jump"
+                  style="background: transparent; color: var(--text-primary); border: none; font-size: 0.75rem; width: 100%; outline: none;">
               </div>
               <span id="pageCounter">-- / --</span>
             </div>
@@ -416,8 +431,9 @@
                 </svg>
               </button>
               <h3>Annotations</h3>
-               <span class="badge" id="annotationCount">0</span>
-              <button class="tool-btn" id="toggleBlinkBtn" title="Toggle Blink" style="margin-left: 8px; background: none; border: none; cursor: pointer; color: var(--text-secondary); width: 24px; height: 24px;">
+              <span class="badge" id="annotationCount">0</span>
+              <button class="tool-btn" id="toggleBlinkBtn" title="Toggle Blink"
+                style="margin-left: 8px; background: none; border: none; cursor: pointer; color: var(--text-secondary); width: 24px; height: 24px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
@@ -534,10 +550,11 @@
         style="display: flex; justify-content: space-between; padding: 20px; border-bottom: 1px solid var(--border-color); background: var(--bg-secondary);">
         <div class="step active" data-step="1">1. Dataset</div>
         <div class="step" data-step="2">2. Stats</div>
-        <div class="step" data-step="3">3. Mapping</div>
-        <div class="step" data-step="4">4. Merge</div>
-        <div class="step" data-step="5">5. Path</div>
-        <div class="step" data-step="6">6. Finalize</div>
+        <div class="step" data-step="3">3. Delete Label</div>
+        <div class="step" data-step="4">4. Mapping</div>
+        <div class="step" data-step="5">5. Merge</div>
+        <div class="step" data-step="6">6. Path</div>
+        <div class="step" data-step="7">7. Finalize</div>
       </div>
 
       <div class="modal-body" style="min-height: 400px; padding: 25px;">
@@ -580,8 +597,19 @@
           </div>
         </div>
 
-        <!-- Step 3: Label Mapping -->
+        <!-- Step 3: Delete Labels -->
         <div class="wizard-step-content" id="wizardStep3" style="display: none;">
+          <h4>Exclude Labels from Export</h4>
+          <p style="margin-bottom: 20px; color: var(--text-secondary);">Select the labels you want to EXCLUDE from the
+            exported files. Annotations with these labels will be deleted.</p>
+          <div id="exportDeleteLabelsContainer"
+            style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: 300px; overflow-y: auto; padding: 15px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary);">
+            <!-- Label checkboxes populated by JS -->
+          </div>
+        </div>
+
+        <!-- Step 4: Label Mapping -->
+        <div class="wizard-step-content" id="wizardStep4" style="display: none;">
           <h4>Label Transformation (Optional)</h4>
           <p style="margin-bottom: 20px; color: var(--text-secondary);">Remap existing labels to new names. Labels left
             blank will remain unchanged.</p>
@@ -602,8 +630,8 @@
           </div>
         </div>
 
-        <!-- Step 4: Label Merging -->
-        <div class="wizard-step-content" id="wizardStep4" style="display: none;">
+        <!-- Step 5: Label Merging -->
+        <div class="wizard-step-content" id="wizardStep5" style="display: none;">
           <h4>Merge Labels (Optional)</h4>
           <p style="margin-bottom: 20px; color: var(--text-secondary);">Configure labels to be merged based on
             proximity. Rule: Merges the 2 closest boxes.</p>
@@ -622,8 +650,8 @@
           </div>
         </div>
 
-        <!-- Step 5: Export Path -->
-        <div class="wizard-step-content" id="wizardStep5" style="display: none;">
+        <!-- Step 6: Export Path -->
+        <div class="wizard-step-content" id="wizardStep6" style="display: none;">
           <h4>Export Settings</h4>
           <div class="form-group">
             <label for="exportPath">Target Server Directory *</label>
@@ -643,8 +671,8 @@
           </div>
         </div>
 
-        <!-- Step 6: Finalize -->
-        <div class="wizard-step-content" id="wizardStep6" style="display: none;">
+        <!-- Step 7: Finalize -->
+        <div class="wizard-step-content" id="wizardStep7" style="display: none;">
           <h4>Ready to Export</h4>
           <div id="exportSummary"
             style="margin-bottom: 30px; padding: 20px; background: var(--bg-secondary); border-radius: 8px;">
@@ -803,7 +831,7 @@
   <div id="labelModal" class="label-modal-backdrop"
     style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 2000; align-items: center; justify-content: center;">
     <div class="label-modal-content"
-      style="background: white; border-radius: 8px; width: 500px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column;">
+      style="background: white; border-radius: 8px; width: 600px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column;">
 
       <div class="modal-header"
         style="padding: 16px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
@@ -1045,23 +1073,42 @@
 
   <!-- Loading Overlay for Clean Data -->
   <div id="loadingOverlay" class="modal">
-    <div class="modal-content" style="max-width: 450px; text-align: center; padding: 2.5rem; background: var(--bg-secondary); border-radius: var(--radius-xl); border: 1px solid var(--border-color); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
-      <div class="loading-spinner" style="margin: 0 auto 2rem; width: 50px; height: 50px; border: 4px solid rgba(249, 115, 22, 0.1); border-top: 4px solid #f97316; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-      <h3 class="loading-text" style="color: var(--text-primary); margin-bottom: 1.5rem; font-size: 1.25rem; font-weight: 700;">Cleaning dataset...</h3>
-      
-      <div class="progress-section" style="background: var(--bg-tertiary); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
-        <div class="progress-container" style="width: 100%; height: 10px; background: rgba(0,0,0,0.2); border-radius: 5px; overflow: hidden; margin-bottom: 1rem;">
-          <div class="progress-bar-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #f97316, #ea580c); transition: width 0.3s ease;"></div>
-        </div>
-        <div class="progress-percentage" style="font-weight: 800; color: #f97316; font-size: 1.25rem; letter-spacing: 0.05em;">0%</div>
+    <div class="modal-content"
+      style="max-width: 450px; text-align: center; padding: 2.5rem; background: var(--bg-secondary); border-radius: var(--radius-xl); border: 1px solid var(--border-color); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+      <div class="loading-spinner"
+        style="margin: 0 auto 2rem; width: 50px; height: 50px; border: 4px solid rgba(249, 115, 22, 0.1); border-top: 4px solid #f97316; border-radius: 50%; animation: spin 1s linear infinite;">
       </div>
-      
-      <p style="margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.875rem; font-style: italic;">Processing images in parallel to save time...</p>
+      <h3 class="loading-text"
+        style="color: var(--text-primary); margin-bottom: 1.5rem; font-size: 1.25rem; font-weight: 700;">Cleaning
+        dataset...</h3>
+
+      <div class="progress-section"
+        style="background: var(--bg-tertiary); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+        <div class="progress-container"
+          style="width: 100%; height: 10px; background: rgba(0,0,0,0.2); border-radius: 5px; overflow: hidden; margin-bottom: 1rem;">
+          <div class="progress-bar-fill"
+            style="width: 0%; height: 100%; background: linear-gradient(90deg, #f97316, #ea580c); transition: width 0.3s ease;">
+          </div>
+        </div>
+        <div class="progress-percentage"
+          style="font-weight: 800; color: #f97316; font-size: 1.25rem; letter-spacing: 0.05em;">0%</div>
+      </div>
+
+      <p style="margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.875rem; font-style: italic;">Processing
+        images in parallel to save time...</p>
     </div>
   </div>
-  
+
   <style>
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
   </style>
 </body>
 
@@ -1074,10 +1121,11 @@
     color: #fff !important;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.4);
   }
-  
+
   .image-item.duplicate-border {
     border: 3px solid #ef4444 !important;
   }
+
   .modal-large {
     max-width: 900px;
     max-height: 80vh;

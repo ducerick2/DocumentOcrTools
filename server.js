@@ -320,6 +320,47 @@ app.patch('/api/images/:id', async (req, res) => {
     }
 });
 
+// Rotate Image Physically
+app.post('/api/images/:id/rotate', async (req, res) => {
+    try {
+        const image = await get('SELECT * FROM images WHERE id = ?', [req.params.id]);
+        if (!image) return res.status(404).json({ error: 'Image not found' });
+        
+        let imgPath = image.absolutePath;
+        if (!imgPath || !fs.existsSync(imgPath)) {
+            return res.status(404).json({ error: 'Image file not found on disk' });
+        }
+        
+        // Use ffmpeg to rotate. transpose=1 is 90 CW.
+        const ext = path.extname(imgPath);
+        const tempPath = imgPath + '.temp' + ext;
+        
+        await execAsync(`ffmpeg -y -i "${imgPath}" -vf "transpose=1" "${tempPath}"`, { timeout: 30000 });
+        
+        // Overwrite original file
+        fs.renameSync(tempPath, imgPath);
+        
+        // The new dimensions map to swapped height/width
+        let newWidth = image.height;
+        let newHeight = image.width;
+        
+        // In case dimensions were not tracked properly prior, fetch via ffprobe
+        try {
+            const dims = await getDimensionsAsync(imgPath);
+            if (dims.width && dims.height) {
+                 newWidth = dims.width;
+                 newHeight = dims.height;
+            }
+        } catch(e) {}
+        
+        await run('UPDATE images SET width = ?, height = ? WHERE id = ?', [newWidth, newHeight, image.id]);
+        res.json({ success: true, width: newWidth, height: newHeight });
+    } catch (err) {
+        console.error('Error rotating image:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Basic rate limiting / in-memory progress tracking
 const importProgress = {};
 
@@ -840,8 +881,9 @@ app.get('/api/datasets/:id/export/:format', async (req, res) => {
 
 // Full wizard-based export
 app.post('/api/export', async (req, res) => {
-    const { datasetId, format, mapping, mergeRules, targetPath, copyImages } = req.body;
-    console.log(`Starting export for dataset ${datasetId} in ${format} format to ${targetPath}`);
+    const { datasetId, format, excludedLabels, mapping, mergeRules, targetPath, copyImages } = req.body;
+    const finalExcludedLabels = excludedLabels || [];
+    console.log(`Starting export for dataset ${datasetId} in ${format} format to ${targetPath}. Excluded: ${finalExcludedLabels.join(', ')}`);
 
     try {
         if (!fs.existsSync(targetPath)) {
@@ -856,8 +898,10 @@ app.post('/api/export', async (req, res) => {
         for (const img of images) {
             const annotations = await getAnnotationsForImage(img);
 
-            // Apply mapping and merging
-            let processedAnns = annotations.map(a => {
+            // Apply filtering, mapping and merging
+            let processedAnns = annotations.filter(a => !finalExcludedLabels.includes(a.label));
+ 
+            processedAnns = processedAnns.map(a => {
                 let label = a.label;
                 if (mapping && mapping[label]) label = mapping[label];
                 return { ...a, label };

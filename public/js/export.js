@@ -11,6 +11,7 @@
         selectedDatasetId: null,
         selectedDataset: null,
         labels: [],
+        excludedLabels: [],
         mapping: {}, // original -> new
         mergeRules: [], // [{fromA, fromB, to}]
         targetPath: '',
@@ -90,8 +91,8 @@
             }
             exportPathInput.value = finalPath;
             folderPickerModal.style.display = 'none';
-            // Enable start button if path is set in step 6
-            if (state.currentStep === 6) {
+            // Enable start button if path is set in step 7
+            if (state.currentStep === 7) {
                 finishBtn.disabled = !finalPath;
             }
         };
@@ -151,6 +152,8 @@
         state.currentStep = 1;
         state.selectedDatasetId = null;
         state.selectedDataset = null;
+        state.labels = [];
+        state.excludedLabels = [];
         state.mapping = {};
         state.mergeRules = [];
         state.targetPath = '';
@@ -195,7 +198,7 @@
     function nextStep() {
         if (state.currentStep === 1 && !state.selectedDatasetId) return;
 
-        if (state.currentStep < 6) {
+        if (state.currentStep < 7) {
             state.currentStep++;
             onStepEnter(state.currentStep);
             updateStepUI();
@@ -214,17 +217,20 @@
             case 2: // Stats
                 await loadStats();
                 break;
-            case 3: // Mapping
+            case 3: // Delete Label
+                buildDeleteLabelUI();
+                break;
+            case 4: // Mapping
                 buildMappingUI();
                 break;
-            case 4: // Merging
+            case 5: // Merging
                 // Pre-populated by user actions
                 break;
-            case 5: // Path
+            case 6: // Path
                 // Initial focus
                 setTimeout(() => document.getElementById('exportPath').focus(), 100);
                 break;
-            case 6: // Finalize
+            case 7: // Finalize
                 buildSummary();
                 break;
         }
@@ -285,11 +291,59 @@
         }
     }
 
+    function buildDeleteLabelUI() {
+        const container = document.getElementById('exportDeleteLabelsContainer');
+        if (!container) return;
+        container.innerHTML = '';
+    
+        if (state.labels.length === 0) {
+            container.innerHTML = '<div style="grid-column: span 2; text-align: center; color: var(--text-secondary);">No labels available</div>';
+            return;
+        }
+    
+        state.labels.forEach(lbl => {
+            const labelWrapper = document.createElement('label');
+            labelWrapper.style.display = 'flex';
+            labelWrapper.style.alignItems = 'center';
+            labelWrapper.style.gap = '8px';
+            labelWrapper.style.padding = '8px';
+            labelWrapper.style.background = 'var(--bg-primary)';
+            labelWrapper.style.borderRadius = '4px';
+            labelWrapper.style.cursor = 'pointer';
+            labelWrapper.style.border = '1px solid var(--border-color)';
+    
+            const isExcluded = state.excludedLabels.includes(lbl);
+            labelWrapper.innerHTML = `
+                <input type="checkbox" class="delete-label-checkbox" value="${lbl}" ${isExcluded ? 'checked' : ''} style="width: 18px; height: 18px;">
+                <span style="font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${lbl}</span>
+            `;
+    
+            labelWrapper.querySelector('input').onclick = (e) => {
+                const val = e.target.value;
+                if (e.target.checked) {
+                    if (!state.excludedLabels.includes(val)) state.excludedLabels.push(val);
+                } else {
+                    state.excludedLabels = state.excludedLabels.filter(item => item !== val);
+                }
+            };
+            
+            container.appendChild(labelWrapper);
+        });
+    }
+
     function buildMappingUI() {
         const table = document.getElementById('labelMappingTable');
         table.innerHTML = '';
-
-        state.labels.forEach(lbl => {
+ 
+        // Only show labels that are NOT excluded
+        const activeLabels = state.labels.filter(l => !state.excludedLabels.includes(l));
+ 
+        if (activeLabels.length === 0) {
+            table.innerHTML = '<tr><td colspan="2" style="padding: 20px; text-align: center; color: var(--text-secondary);">All labels have been excluded</td></tr>';
+            return;
+        }
+ 
+        activeLabels.forEach(lbl => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">${lbl}</td>
@@ -310,7 +364,9 @@
         div.style.alignItems = 'center';
         div.style.marginBottom = '10px';
 
-        const options = state.labels.map(l => `<option value="${l}">${l}</option>`).join('');
+        // Only show labels that are NOT excluded
+        const activeLabels = state.labels.filter(l => !state.excludedLabels.includes(l));
+        const options = activeLabels.map(l => `<option value="${l}">${l}</option>`).join('');
 
         div.innerHTML = `
             <select class="form-select merge-a" style="flex: 1;">${options}</select>
@@ -352,6 +408,7 @@
         summary.innerHTML = `
             <div style="margin-bottom: 10px;"><strong>Dataset:</strong> ${state.selectedDataset.name}</div>
             <div style="margin-bottom: 10px;"><strong>Format:</strong> ${state.format.toUpperCase()}</div>
+            <div style="margin-bottom: 10px;"><strong>Excluded Labels:</strong> ${state.excludedLabels.length > 0 ? state.excludedLabels.join(', ') : 'None'}</div>
             <div style="margin-bottom: 10px;"><strong>Destination:</strong> ${state.targetPath || 'Not set'}</div>
             <div style="margin-bottom: 10px;"><strong>Mappings:</strong> ${Object.keys(state.mapping).length} labels renamed</div>
             <div style="margin-bottom: 10px;"><strong>Merge Rules:</strong> ${state.mergeRules.length} pairs configured</div>
@@ -378,7 +435,7 @@
 
         // Update buttons
         backBtn.disabled = state.currentStep === 1;
-        if (state.currentStep < 6) {
+        if (state.currentStep < 7) {
             nextBtn.style.display = 'inline-block';
             finishBtn.style.display = 'none';
         }
@@ -399,6 +456,7 @@
             const payload = {
                 datasetId: state.selectedDatasetId,
                 format: state.format,
+                excludedLabels: state.excludedLabels,
                 mapping: state.mapping,
                 mergeRules: state.mergeRules,
                 targetPath: state.targetPath,
