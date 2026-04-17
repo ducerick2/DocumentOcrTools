@@ -1,0 +1,8 @@
+{
+  "ignore": [
+    "dataset_public/*",
+    "public/data/*",
+    "data/*.db",
+    "data/*.db-journal"
+  ]
+}

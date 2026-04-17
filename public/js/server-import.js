@@ -249,10 +249,16 @@ async function importSelectedFiles() {
 
         // --- Auto-label Discovery ---
         try {
+            // Only scan the folders being imported
+            const pathsToScan = fileNames.map(name => {
+                // Construct joined path correctly
+                return currentServerPath.endsWith('/') ? currentServerPath + name : currentServerPath + '/' + name;
+            });
+
             const scanResponse = await fetch('/api/utils/scan-labels', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: currentServerPath })
+                body: JSON.stringify({ paths: pathsToScan })
             });
 
             if (scanResponse.ok) {

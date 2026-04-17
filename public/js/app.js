@@ -292,6 +292,14 @@ document.getElementById('uploadImagesBtn').addEventListener('click', () => {
     uploadImagesModal.classList.add('active');
 });
 
+document.getElementById('excludeDataBtn').addEventListener('click', () => {
+    if (typeof excludeCurrentImage === 'function') {
+        excludeCurrentImage();
+    } else {
+        console.error('excludeCurrentImage function not found');
+    }
+});
+
 document.getElementById('cleanDataBtn').addEventListener('click', async () => {
     if (!currentDataset) return;
     
@@ -814,6 +822,7 @@ if (toggleSidebarBtn && sidebar) {
 }
 
 // Global UI Refreshers
+// Global UI Refreshers
 window.refreshLabelControls = function () {
     if (!currentDataset) return;
 
@@ -830,3 +839,195 @@ window.refreshLabelControls = function () {
     // If annotator has its own filter panel, it will be refreshed if linked to this window function
     // annotator.js defines its own window.buildFilterPanel which is called by its internal refreshLabelControls
 };
+
+// Batch Edit Labels Logic
+const batchEditModal = document.getElementById('batchEditModal');
+const batchEditTableBody = document.getElementById('batchEditTableBody');
+const batchEditProgress = document.getElementById('batchEditProgress');
+const applyBatchEditBtn = document.getElementById('applyBatchEditBtn');
+const cancelBatchEditBtn = document.getElementById('cancelBatchEditBtn');
+const closeBatchEditModalBtn = document.getElementById('closeBatchEditModalBtn');
+
+function getColorForBatchLabel(label) {
+    const palette = [
+        { bg: '#f5f3ff', text: '#7c3aed' }, // Violet
+        { bg: '#eff6ff', text: '#2563eb' }, // Blue
+        { bg: '#ecfdf5', text: '#059669' }, // Emerald
+        { bg: '#fff7ed', text: '#ea580c' }, // Orange
+        { bg: '#fdf2f8', text: '#db2777' }, // Pink
+        { bg: '#f0fdf4', text: '#16a34a' }, // Green
+        { bg: '#fef2f2', text: '#dc2626' }, // Red
+        { bg: '#fffbeb', text: '#d97706' }, // Amber
+        { bg: '#f5f5f4', text: '#57534e' }  // Stone
+    ];
+    
+    // Simple hash function for consistent color selection
+    let hash = 0;
+    for (let i = 0; i < label.length; i++) {
+        hash = label.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return palette[Math.abs(hash) % palette.length];
+}
+
+const openBatchEditModal = async () => {
+    if (!currentDataset) return;
+    
+    // 1. Initial State
+    batchEditTableBody.innerHTML = '<tr><td colspan="2" style="padding: 40px; text-align: center;"><div class="spinner-sm" style="margin: 0 auto 12px auto; width: 24px; height: 24px; border-width: 3px;"></div><div style="color: #64748b; font-size: 14px; font-weight: 500;">Scanning annotations for unique labels...</div></td></tr>';
+    batchEditProgress.style.display = 'none';
+    applyBatchEditBtn.disabled = true;
+    batchEditModal.style.display = 'flex';
+
+    try {
+        // 2. Fetch unique labels directly from the annotation files via the API
+        const response = await fetch(`${API_BASE}/datasets/${currentDataset.id}/labels`);
+        if (!response.ok) throw new Error('Failed to fetch labels');
+        const labels = await response.json();
+        
+        // 3. Clear and populate table
+        batchEditTableBody.innerHTML = '';
+        
+        if (!labels || labels.length === 0) {
+            batchEditTableBody.innerHTML = '<tr><td colspan="2" style="padding: 40px; text-align: center; color: #94a3b8; font-style: italic;">No labels found in this dataset\'s annotations.</td></tr>';
+            return;
+        }
+
+        // Sort labels alphabetically for easier navigation
+        const sortedLabels = [...labels].sort((a, b) => a.localeCompare(b));
+        
+        sortedLabels.forEach(label => {
+            const tr = document.createElement('tr');
+            tr.className = 'batch-edit-row';
+            tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+            const colors = getColorForBatchLabel(label);
+            
+            tr.innerHTML = `
+                <td style="padding: 12px 24px; border-right: 1px solid rgba(255,255,255,0.1); width: 45%;">
+                    <span class="label-badge" style="background: ${colors.bg}; color: ${colors.text};">
+                        ${label}
+                    </span>
+                </td>
+                <td style="padding: 12px 24px;">
+                    <div style="display: flex; align-items: center;">
+                        <span style="color: rgba(255,255,255,0.2); font-weight: 800; margin-right: 15px; font-size: 14px;">→</span>
+                        <input type="text" class="batch-label-input" data-original="${label}" placeholder="New name..." 
+                               style="flex: 1; padding: 10px 14px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-size: 13px; font-weight: 500; color: #f8fafc; background: rgba(255,255,255,0.03);">
+                    </div>
+                </td>
+            `;
+            batchEditTableBody.appendChild(tr);
+        });
+        
+        applyBatchEditBtn.disabled = false;
+        cancelBatchEditBtn.disabled = false;
+    } catch (err) {
+        console.error('Error opening batch edit:', err);
+        batchEditTableBody.innerHTML = `<tr><td colspan="2" style="padding: 20px; text-align: center; color: #ef4444;">Error: ${err.message}</td></tr>`;
+    }
+};
+
+const closeBatchEditModal = () => {
+    batchEditModal.style.display = 'none';
+};
+
+if (document.getElementById('batchEditLabelsBtn')) {
+    document.getElementById('batchEditLabelsBtn').addEventListener('click', openBatchEditModal);
+}
+
+if (closeBatchEditModalBtn) closeBatchEditModalBtn.addEventListener('click', closeBatchEditModal);
+if (cancelBatchEditBtn) cancelBatchEditBtn.addEventListener('click', closeBatchEditModal);
+
+applyBatchEditBtn.addEventListener('click', async () => {
+    if (!currentDataset) return;
+    
+    const inputs = batchEditModal.querySelectorAll('.batch-label-input');
+    const labelMap = {};
+    let hasChanges = false;
+    
+    inputs.forEach(input => {
+        const original = input.dataset.original;
+        const target = input.value.trim();
+        if (target && target !== original) {
+            labelMap[original] = target;
+            hasChanges = true;
+        }
+    });
+    
+    if (!hasChanges) {
+        alert('Please specify at least one label change.');
+        return;
+    }
+    
+    if (!confirm('Are you sure you want to apply these label changes across the entire dataset? This cannot be undone automatically.')) {
+        return;
+    }
+    
+    // Disable UI
+    applyBatchEditBtn.disabled = true;
+    cancelBatchEditBtn.disabled = true;
+    batchEditProgress.style.display = 'block';
+    batchEditProgress.textContent = 'Preparing...';
+    
+    try {
+        const response = await fetch(`${API_BASE}/datasets/${currentDataset.id}/batch-edit-labels`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ labelMap })
+        });
+        
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n\n');
+            buffer = lines.pop();
+            
+            for (const line of lines) {
+                if (!line.trim() || !line.startsWith('data: ')) continue;
+                
+                try {
+                    const data = JSON.parse(line.substring(6));
+                    if (data.progress !== undefined) {
+                        batchEditProgress.textContent = `Processing: ${data.progress}%`;
+                    }
+                    
+                    if (data.success) {
+                        alert(`Successfully updated labels!\n- Files modified: ${data.processedFiles}\n- Labels changed: ${data.processedLabels}`);
+                        closeBatchEditModal();
+                        
+                        // Clear active annotation cache to force reload of labels from disk
+                        if (window.clearAnnotationCache) window.clearAnnotationCache();
+                        
+                        // Re-fetch dataset to get new label schema if it changed
+                        await openDataset(currentDataset.id);
+                        
+                        // If annotator is active, refresh the current image
+                        if (typeof window.refreshCurrentImageData === 'function') {
+                            window.refreshCurrentImageData();
+                        }
+                    } else if (data.error) {
+                        alert('Error: ' + data.error);
+                        applyBatchEditBtn.disabled = false;
+                        cancelBatchEditBtn.disabled = false;
+                    }
+                } catch (e) {
+                    console.error('Error parsing SSE:', e);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Batch edit failed:', err);
+        alert('Failure: ' + err.message);
+        applyBatchEditBtn.disabled = false;
+        cancelBatchEditBtn.disabled = false;
+    }
+});

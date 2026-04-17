@@ -108,7 +108,17 @@ window.clearAnnotationCache = () => {
     prefetchCache.clear();
     console.log('[CACHE] Annotation prefetch cache cleared.');
 };
-const MAX_PREFETCH_DISTANCE = 10;
+
+window.refreshCurrentImageData = function() {
+    const activeItem = document.querySelector('.image-item.active');
+    if (activeItem && activeItem.dataset.id && activeItem.dataset.path) {
+        // Delete current image from cache to force network re-fetch
+        prefetchCache.delete(activeItem.dataset.id);
+        // Trigger reload
+        loadImageInCanvas(activeItem.dataset.path, activeItem.dataset.id, true);
+    }
+};
+const MAX_PREFETCH_DISTANCE = 3; // Reduced from 10 to prevent network starvation/ERR_EMPTY_RESPONSE
 
 function triggerPrefetch(currentIndex) {
     if (!window.datasetImages) return;
@@ -154,9 +164,14 @@ function triggerPrefetch(currentIndex) {
 let saveDebounceTimer = null;
 
 // Debounced save — collapses rapid auto-saves into one (used while dragging)
-function debouncedSave(delay = 300) {
-    clearTimeout(saveDebounceTimer);
-    saveDebounceTimer = setTimeout(() => saveAnnotations(), delay);
+function debouncedSave(delay = 50) {
+    if (saveDebounceTimer) {
+        clearTimeout(saveDebounceTimer);
+    }
+    saveDebounceTimer = setTimeout(() => {
+        saveDebounceTimer = null;
+        saveAnnotations();
+    }, delay);
 }
 
 // Initialize canvas
@@ -838,6 +853,82 @@ async function extractAllAnnotations() {
     alert(`Extraction completed for ${total} items.`);
 }
 
+async function excludeCurrentImage() {
+    if (!currentImageId) return;
+
+    if (!confirm('Are you sure you want to EXCLUDE this data? The image and all its associated files (annotations, layouts, markdowns, texts) will be moved to an "excludes" folder in the dataset directory and removed from this view.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/images/${currentImageId}/exclude`, {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            // 1. Identify current and next nodes before removal
+            const activeItem = document.querySelector(`.image-item[data-id="${currentImageId}"]`);
+            const nextItem = activeItem ? activeItem.nextElementSibling : null;
+            const prevItem = activeItem ? activeItem.previousElementSibling : null;
+
+            // 2. Remove from window.datasetImages
+            if (window.datasetImages) {
+                window.datasetImages = window.datasetImages.filter(img => String(img.id) !== String(currentImageId));
+            }
+
+            // 3. Remove from DOM and Cache
+            if (activeItem) {
+                activeItem.remove();
+            }
+            if (typeof prefetchCache !== 'undefined') {
+                prefetchCache.delete(currentImageId);
+            }
+
+            // 4. Update stats in index
+            if (typeof currentDataset !== 'undefined' && currentDataset) {
+                currentDataset.imageCount--;
+                // We don't know for sure if it was annotated, but the backend handles the DB side.
+                // For UI consistency, we can reload or just decrement if it was marked as annotated.
+                const imgNode = activeItem;
+                if (imgNode && imgNode.querySelector('.badge-success')) {
+                    currentDataset.annotatedCount--;
+                }
+                // Update stats on dashboard if visible
+                const datasetCard = document.querySelector(`.dataset-card[data-id="${currentDataset.id}"]`);
+                if (datasetCard) {
+                    const countEl = datasetCard.querySelector('.dataset-stat:nth-child(1) .dataset-stat-value');
+                    const annEl = datasetCard.querySelector('.dataset-stat:nth-child(2) .dataset-stat-value');
+                    if (countEl) countEl.textContent = currentDataset.imageCount;
+                    if (annEl) annEl.textContent = currentDataset.annotatedCount;
+                }
+            }
+            
+            // Re-sync the sidebar counters if possible
+            if (typeof updatePageCounter === 'function') {
+                updatePageCounter();
+            } else if (typeof updateZoomLevel === 'function') {
+                updateZoomLevel();
+            }
+
+            // 5. Navigate to next or previous image
+            if (nextItem) {
+                nextItem.click();
+            } else if (prevItem) {
+                prevItem.click();
+            } else {
+                // No more images in dataset
+                location.reload(); // Or switch back to datasets view
+            }
+        } else {
+            alert('Exclude failed: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Error excluding image:', error);
+        alert('Error excluding image: ' + error.message);
+    }
+}
+
 function navigateImage(direction) {
     const activeItem = document.querySelector('.image-item.active');
     if (!activeItem) return;
@@ -992,6 +1083,13 @@ function loadImageInCanvas(imagePath, imageId, immediate = false) {
 
 // Actual load logic (Concurrent + Prefetch)
 async function performLoadImage(imagePath, imageId) {
+    // 0. Force flush any pending saves for the OUTGOING image to avoid losing edits!
+    if (saveDebounceTimer && currentImageId && currentImageId !== imageId) {
+        clearTimeout(saveDebounceTimer);
+        saveDebounceTimer = null;
+        saveAnnotations(); // Caputure current UI state & queue server sync
+    }
+
     currentImageId = imageId;
     undoStack = []; // Clear undo history on image load
     redoStack = [];
@@ -3525,12 +3623,23 @@ document.addEventListener('keydown', (e) => {
                 ann.width = currentImage.width;
                 ann.height = currentImage.height;
                 if (ann.type === 'polygon' || ann.type === 'poly') {
-                    ann.points = [
-                        {x: 0, y: 0},
-                        {x: currentImage.width, y: 0},
-                        {x: currentImage.width, y: currentImage.height},
-                        {x: 0, y: currentImage.height}
-                    ];
+                    // Detect if points are [x,y] or {x,y}
+                    const isArrayFormat = ann.points && ann.points.length > 0 && Array.isArray(ann.points[0]);
+                    if (isArrayFormat) {
+                        ann.points = [
+                            [0, 0],
+                            [currentImage.width, 0],
+                            [currentImage.width, currentImage.height],
+                            [0, currentImage.height]
+                        ];
+                    } else {
+                        ann.points = [
+                            {x: 0, y: 0},
+                            {x: currentImage.width, y: 0},
+                            {x: currentImage.width, y: currentImage.height},
+                            {x: 0, y: currentImage.height}
+                        ];
+                    }
                 }
             });
             render();

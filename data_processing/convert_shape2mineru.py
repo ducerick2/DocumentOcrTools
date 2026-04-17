@@ -10,8 +10,8 @@ def normalize(val, max_val):
     return min(999, max(0, int(round((val * 1000) / max_val))))
 
 def main():
-    src_dir = "/data/ducbm3/keypoints/data/SuperLayout/luong2"
-    dst_dir = "/data/ducbm3/DocumentOCR/dataset_public/luong2"
+    src_dir = "/data/ducbm3/keypoints/data/SuperLayout/train_part6"
+    dst_dir = "/data/ducbm3/DocumentOCR/dataset_public/train_part6_new"
     
     json_files = glob.glob(os.path.join(src_dir, "**", "*.json"), recursive=True)
     converted_count = 0
@@ -36,11 +36,18 @@ def main():
         shapes = data.get('shapes', [])
         
         parts = Path(json_path).parts
-        subgroup = "default"
-        if "autopass" in parts:
+        rel_path = Path(json_path).relative_to(src_dir)
+        
+        # Priority 1: Use the top-level directory name from source (new/preferred behavior)
+        if len(rel_path.parts) > 1:
+            subgroup = rel_path.parts[0]
+        # Priority 2: Check for keywords (backward compatibility/fallback)
+        elif "autopass" in parts:
             subgroup = "autopass"
         elif "humanreview" in parts:
             subgroup = "humanreview"
+        else:
+            subgroup = "default"
             
         dst_annotations_dir = os.path.join(dst_dir, subgroup, "annotations")
         dst_images_dir = os.path.join(dst_dir, subgroup, "images")

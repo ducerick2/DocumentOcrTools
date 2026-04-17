@@ -7,6 +7,42 @@
   <title>Dataset Manager - Document OCR</title>
   <meta name="description" content="Manage and annotate datasets for document OCR training">
   <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    /* Batch Edit Labels Modal Premium Styles */
+    .batch-edit-row {
+      transition: background-color 0.2s ease;
+    }
+    .batch-edit-row:hover {
+      background-color: rgba(255,255,255,0.03);
+    }
+    .label-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .batch-label-input {
+      transition: all 0.2s ease;
+      background: rgba(255,255,255,0.03) !important;
+      border: 1px solid rgba(255,255,255,0.1) !important;
+      color: #f8fafc !important;
+    }
+    .batch-label-input:focus {
+      outline: none;
+      border-color: #8b5cf6 !important;
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25) !important;
+      background: rgba(255,255,255,0.06) !important;
+    }
+    .batch-arrow {
+      color: #475569;
+      margin: 0 12px;
+      font-weight: 800;
+    }
+  </style>
 </head>
 
 <body>
@@ -126,6 +162,12 @@
               </svg>
               Import from Server
             </button>
+            <button class="btn btn-secondary" id="batchEditLabelsBtn" title="Batch rename labels across the entire dataset" style="color: #fff; font-weight: 600; background-color: #8b5cf6; margin-right: 8px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+                <path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+              Batch Edit Labels
+            </button>
             <button class="btn btn-secondary" id="checkDuplicateBtn"
               style="color: #fff; font-weight: 600; background-color: #64748b; margin-right: 8px;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -148,6 +190,16 @@
                 <path d="M13 14l-4 4" />
               </svg>
               Clean Data
+            </button>
+            <button class="btn btn-danger" id="excludeDataBtn"
+              style="background-color: #ef4444; border-color: #ef4444; color: #fff; font-weight: 600; margin-right: 8px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18" />
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+              </svg>
+              Exclude Data
             </button>
             <button class="btn btn-primary" id="uploadImagesBtn">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -823,6 +875,52 @@
           <button type="button" class="btn btn-secondary" id="cancelServerImportBtn">Cancel</button>
           <button type="button" class="btn btn-primary" id="confirmServerImportBtn" disabled>Import Selected</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Edit Labels Modal -->
+  <div id="batchEditModal" class="label-modal-backdrop"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 3000; align-items: center; justify-content: center;">
+    <div class="label-modal-content"
+      style="background: #0f172a; border-radius: 16px; width: 620px; max-width: 90%; box-shadow: 0 25px 60px rgba(0,0,0,0.5); overflow: hidden; display: flex; flex-direction: column; max-height: 85vh; border: 1px solid rgba(255,255,255,0.1);">
+      
+      <div class="modal-header"
+        style="padding: 30px 24px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e293b; position: relative;">
+        <button id="closeBatchEditModalBtn" style="position: absolute; top: 16px; right: 20px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; width: 34px; height: 34px; cursor: pointer; color: #94a3b8; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 20px;">
+            &times;
+        </button>
+        <div style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; width: 50px; height: 50px; border-radius: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px rgba(139, 92, 246, 0.2); margin-bottom: 15px;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+        </div>
+        <h3 style="margin: 0; font-size: 22px; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em; text-align: center;">Batch Rename Labels</h3>
+        <p style="margin: 6px 0 0 0; font-size: 14px; color: #94a3b8; text-align: center; max-width: 80%;">Synchronize label transformations across your entire dataset.</p>
+      </div>
+
+      <div class="modal-body" style="padding: 0; overflow-y: auto; background: #0f172a;">
+        <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+          <thead style="background: #111827; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid rgba(255,255,255,0.1);">
+            <tr>
+              <th style="padding: 16px 24px; text-align: left; font-size: 11px; font-weight: 800; color: #818cf8; text-transform: uppercase; letter-spacing: 0.12em; border-right: 1px solid rgba(255,255,255,0.1); width: 45%;">Source Label</th>
+              <th style="padding: 16px 24px; text-align: left; font-size: 11px; font-weight: 800; color: #818cf8; text-transform: uppercase; letter-spacing: 0.12em;">Target Transformation</th>
+            </tr>
+          </thead>
+          <tbody id="batchEditTableBody" style="color: #cbd5e1;">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-footer"
+        style="padding: 20px 24px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: flex-end; gap: 12px; background: #1e293b;">
+        <span id="batchEditProgress" style="font-size: 14px; font-weight: 700; color: #a78bfa; margin-right: auto; display: none; align-items: center; gap: 10px;">
+          <span class="spinner-sm" style="border-color: #a78bfa #0000; width: 14px; height: 14px;"></span>
+          Synchronizing: 0%
+        </span>
+        <button id="cancelBatchEditBtn" class="btn btn-secondary" style="background: transparent; border-color: rgba(255,255,255,0.15); color: #94a3b8; font-weight: 600;">Discard</button>
+        <button id="applyBatchEditBtn" class="btn btn-primary" style="background: linear-gradient(135deg, #8b5cf6, #6366f1); border: none; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4); padding: 0 24px; font-weight: 700;">
+           Apply Global Transformation
+        </button>
       </div>
     </div>
   </div>

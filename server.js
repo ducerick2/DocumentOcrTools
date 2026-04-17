@@ -361,6 +361,97 @@ app.post('/api/images/:id/rotate', async (req, res) => {
     }
 });
 
+app.post('/api/images/:id/exclude', async (req, res) => {
+    try {
+        // 1. Get image info
+        const image = await get('SELECT * FROM images WHERE id = ?', [req.params.id]);
+        if (!image) return res.status(404).json({ error: 'Image not found' });
+
+        const datasetId = image.datasetId;
+        const imgPath = image.absolutePath;
+        if (!imgPath || !fs.existsSync(imgPath)) {
+            return res.status(404).json({ error: 'Image file not found on disk' });
+        }
+
+        // 2. Identify the true dataset root (finding the segment after 'dataset_public')
+        const parts = imgPath.split(path.sep);
+        const datasetPublicIdx = parts.indexOf('dataset_public');
+        let baseDir;
+        
+        if (datasetPublicIdx !== -1 && parts.length > datasetPublicIdx + 1) {
+            // Root is the folder directly inside dataset_public
+            baseDir = parts.slice(0, datasetPublicIdx + 2).join(path.sep);
+        } else {
+            // Fallback for cases outside dataset_public
+            baseDir = path.dirname(path.dirname(imgPath));
+        }
+
+        const imageName = path.parse(imgPath).name;
+        const excludeBaseDir = path.join(baseDir, 'excludes');
+
+        // 3. Recursive function to find all files with the same basename in the root
+        const movedFiles = [];
+        
+        function findAndMoveFiles(currentDir) {
+            if (!fs.existsSync(currentDir)) return;
+            const items = fs.readdirSync(currentDir, { withFileTypes: true });
+
+            for (const item of items) {
+                const fullPath = path.join(currentDir, item.name);
+                
+                if (item.isDirectory()) {
+                    // Skip the 'excludes' folder itself to avoid infinite loops/moving excluded data
+                    if (item.name === 'excludes') continue;
+                    findAndMoveFiles(fullPath);
+                } else {
+                    const fileName = path.parse(item.name).name;
+                    if (fileName === imageName) {
+                        // Found a matching file, move it
+                        const relativePath = path.relative(baseDir, fullPath);
+                        const destFile = path.join(excludeBaseDir, relativePath);
+                        const destDir = path.dirname(destFile);
+
+                        console.log(`[Exclude] Found match: ${fullPath} -> ${destFile}`);
+
+                        if (!fs.existsSync(destDir)) {
+                            fs.mkdirSync(destDir, { recursive: true });
+                        }
+
+                        fs.renameSync(fullPath, destFile);
+                        movedFiles.push(destFile);
+                    }
+                }
+            }
+        }
+
+        // 4. Perform the move
+        console.log(`[Exclude] Moving data for ${imageName} from root ${baseDir}`);
+        findAndMoveFiles(baseDir);
+        console.log(`[Exclude] Successfully moved ${movedFiles.length} files.`);
+
+        // 5. Delete from Database
+        await run('DELETE FROM images WHERE id = ?', [image.id]);
+
+        // 6. Update Dataset Stats
+        await run(`
+            UPDATE datasets 
+            SET imageCount = (SELECT COUNT(*) FROM images WHERE datasetId = ?),
+                annotatedCount = (SELECT COUNT(*) FROM images WHERE datasetId = ? AND isAnnotated = 1)
+            WHERE id = ?
+        `, [datasetId, datasetId, datasetId]);
+
+        res.json({ 
+            success: true, 
+            message: 'Image and all associated files moved to excludes folder at dataset root',
+            baseDir,
+            movedFiles
+        });
+    } catch (err) {
+        console.error('Error excluding image:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Basic rate limiting / in-memory progress tracking
 const importProgress = {};
 
@@ -381,17 +472,33 @@ app.post('/api/datasets/:id/import', async (req, res) => {
     try {
         console.log(`Pre-scanning for annotations in ${sourcePath}...`);
         const annMap = new Map();
+        const isExcludedPath = (p) => p.split(path.sep).some(part => part.toLowerCase() === 'excludes');
+
         function scanForAnnsSync(dir) {
             if (!fs.existsSync(dir)) return;
+            if (isExcludedPath(dir)) return; // Skip if directory itself is excluded
+
             const items = fs.readdirSync(dir);
             for (const item of items) {
                 const fullPath = path.join(dir, item);
-                if (fs.statSync(fullPath).isDirectory()) scanForAnnsSync(fullPath);
+                if (fs.statSync(fullPath).isDirectory()) {
+                    if (item.toLowerCase() === 'excludes') continue;
+                    scanForAnnsSync(fullPath);
+                }
                 else if (item.toLowerCase().endsWith('.json')) annMap.set(item.toLowerCase(), fullPath);
             }
         }
-        scanForAnnsSync(sourcePath);
-        console.log(`Found ${annMap.size} potential annotation files.`);
+
+        // Only scan within the specific folders being imported, not the entire source root
+        const filteredFileNames = fileNames.filter(name => name.toLowerCase() !== 'excludes');
+
+        for (const name of filteredFileNames) {
+            const scanPath = path.join(sourcePath, name);
+            if (!isExcludedPath(scanPath)) {
+                scanForAnnsSync(scanPath);
+            }
+        }
+        console.log(`Found ${annMap.size} potential annotation files within selected folders.`);
 
         const imagesToInsert = [];
         const finalResults = [];
@@ -400,9 +507,12 @@ app.post('/api/datasets/:id/import', async (req, res) => {
 
         async function processFile(currentPath, item) {
             const fullPath = path.join(currentPath, item);
+            if (isExcludedPath(fullPath)) return; // Final safeguard
+
             const stats = await fs.promises.stat(fullPath);
 
             if (stats.isDirectory()) {
+                if (item.toLowerCase() === 'excludes') return;
                 const items = await fs.promises.readdir(fullPath);
                 await Promise.all(items.map(i => processFile(fullPath, i)));
             } else if (/\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(item)) {
@@ -451,11 +561,13 @@ app.post('/api/datasets/:id/import', async (req, res) => {
         // We first collect all files to get a total count for the progress bar
         const allFiles = [];
         async function collectFiles(currentPath) {
+            if (isExcludedPath(currentPath)) return;
             const items = await fs.promises.readdir(currentPath);
             for (const item of items) {
                 const fullPath = path.join(currentPath, item);
                 const stats = await fs.promises.stat(fullPath);
                 if (stats.isDirectory()) {
+                    if (item.toLowerCase() === 'excludes') continue;
                     await collectFiles(fullPath);
                 } else if (/\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(item)) {
                     allFiles.push({ path: currentPath, item });
@@ -463,8 +575,11 @@ app.post('/api/datasets/:id/import', async (req, res) => {
             }
         }
 
-        for (const name of fileNames) {
-            await collectFiles(path.join(sourcePath, name));
+        for (const name of filteredFileNames) {
+            const scanPath = path.join(sourcePath, name);
+            if (!isExcludedPath(scanPath)) {
+                await collectFiles(scanPath);
+            }
         }
 
         importProgress[datasetId].total = allFiles.length;
@@ -677,12 +792,15 @@ app.post('/api/browse', (req, res) => {
 });
 
 app.post('/api/utils/scan-labels', async (req, res) => {
-    const { path: targetPath } = req.body;
-    try {
-        if (!fs.existsSync(targetPath)) return res.status(404).json({ error: 'Path not found' });
+    let { path: targetPath, paths: targetPaths } = req.body;
+    
+    // Support both single path and array of paths
+    const pathsToScan = targetPaths || (targetPath ? [targetPath] : []);
 
+    try {
         const labels = new Set();
         const scan = (dir) => {
+            if (!fs.existsSync(dir)) return;
             const items = fs.readdirSync(dir, { withFileTypes: true });
             for (const item of items) {
                 const fullItemPath = path.join(dir, item.name);
@@ -691,20 +809,27 @@ app.post('/api/utils/scan-labels', async (req, res) => {
                 } else if (item.name.endsWith('.json')) {
                     try {
                         const content = JSON.parse(fs.readFileSync(fullItemPath, 'utf8'));
-                        if (content.layouts) {
-                            content.layouts.forEach(l => {
-                                if (l.class) labels.add(l.class);
-                                else if (l.label) labels.add(l.label);
-                            });
+                        
+                        // Handle both 'layouts' and 'shapes' formats
+                        const itemsToProcess = (content.layouts && Array.isArray(content.layouts)) ? content.layouts : 
+                                               ((content.shapes && Array.isArray(content.shapes)) ? content.shapes : []);
+
+                        for (let entry of itemsToProcess) {
+                            const val = entry.class || entry.label;
+                            if (val) labels.add(val);
                         }
                     } catch (e) { }
                 }
             }
         };
 
-        scan(targetPath);
-        res.json({ labels: Array.from(labels) });
+        for (const p of pathsToScan) {
+            scan(p);
+        }
+
+        res.json({ labels: Array.from(labels).sort() });
     } catch (err) {
+        console.error('Labels scan error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -1003,6 +1128,138 @@ app.post('/api/export', async (req, res) => {
     } catch (err) {
         console.error(`[ERROR] Wizard export failed: ${err.message}`);
         res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/datasets/:id/batch-edit-labels', async (req, res) => {
+    const datasetId = req.params.id;
+    // For SSE, body comes in differently if we don't parse it. Wait, Express parses JSON bodies if app.use(express.json()) is up.
+    // However, fetch with SSE sometimes puts it in the query string or the body is read via standard POST prior to stream open.
+    // SSE requests from EventSource don't easily allow POST bodies. 
+    // We should use standard POST and respond with a regular JSON if it's fast enough, OR use fetch to read stream.
+    // We use fetch reading the body stream with POST in cleanData logic! Yes! cleanData uses POST + fetch stream.
+    const { labelMap } = req.body; 
+    
+    if (!labelMap || Object.keys(labelMap).length === 0) {
+        return res.status(400).json({ error: 'No label mapping provided.' });
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const sendEvent = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+    try {
+        const dataset = await get('SELECT * FROM datasets WHERE id = ?', [datasetId]);
+        if (!dataset) {
+            sendEvent({ error: 'Dataset not found' });
+            return res.end();
+        }
+        
+        const images = await all('SELECT * FROM images WHERE datasetId = ?', [datasetId]);
+        if (images.length === 0) {
+            sendEvent({ success: true, processedFiles: 0 });
+            return res.end();
+        }
+
+        let totalModifiedFiles = 0;
+        let totalModifiedLabels = 0;
+
+        const CONCURRENCY = 15;
+        let imageIndex = 0;
+
+        const processNext = async () => {
+            while (imageIndex < images.length) {
+                const i = imageIndex++;
+                const img = images[i];
+
+                try {
+                    const annPath = getActualAnnotationPath(img);
+                    if (annPath && fs.existsSync(annPath)) {
+                        let content = JSON.parse(fs.readFileSync(annPath, 'utf8'));
+                        let modifiedFile = false;
+                        
+                        // Handle both 'layouts' and 'shapes' formats
+                        const itemsToProcess = (content.layouts && Array.isArray(content.layouts)) ? content.layouts : 
+                                               ((content.shapes && Array.isArray(content.shapes)) ? content.shapes : []);
+
+                        for (let entry of itemsToProcess) {
+                            // Support both 'label' and 'class' property names
+                            const currentLabelValue = entry.label || entry.class;
+                            if (currentLabelValue && labelMap[currentLabelValue]) {
+                                const newLabelValue = labelMap[currentLabelValue];
+                                if (entry.label) entry.label = newLabelValue;
+                                if (entry.class) entry.class = newLabelValue;
+                                modifiedFile = true;
+                                totalModifiedLabels++;
+                            }
+                        }
+
+                        if (modifiedFile) {
+                            fs.writeFileSync(annPath, JSON.stringify(content, null, 2));
+                            totalModifiedFiles++;
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Error processing annotations for ${img.id}:`, e.message);
+                }
+
+                if (i % 25 === 0) {
+                    sendEvent({ progress: Math.min(99, Math.round(((i + 1) / images.length) * 100)), processed: i + 1, total: images.length });
+                }
+            }
+        };
+
+        const workers = Array(Math.min(CONCURRENCY, images.length)).fill(null).map(processNext);
+        await Promise.all(workers);
+
+        // --- Update Dataset Schema (Suggested Labels) ---
+        let currentLabels = [];
+        try {
+            if (dataset.labels) currentLabels = JSON.parse(dataset.labels);
+        } catch(e){}
+        
+        let newLabels = new Set();
+        let schemaChanged = false;
+
+        // Map existing labels to their new values
+        for (const lbl of currentLabels) {
+            const target = labelMap[lbl];
+            if (target) {
+                newLabels.add(target);
+                if (target !== lbl) schemaChanged = true;
+            } else {
+                newLabels.add(lbl);
+            }
+        }
+        
+        // Ensure any new targets that weren't in currentLabels are also added
+        for (const target of Object.values(labelMap)) {
+            if (target && !newLabels.has(target)) {
+                newLabels.add(target);
+                schemaChanged = true;
+            }
+        }
+
+        if (schemaChanged) {
+            const newLabelsJSON = JSON.stringify(Array.from(newLabels).sort());
+            await run('UPDATE datasets SET labels = ? WHERE id = ?', [newLabelsJSON, datasetId]);
+        }
+
+        sendEvent({ 
+            progress: 100, 
+            success: true, 
+            processedFiles: totalModifiedFiles, 
+            processedLabels: totalModifiedLabels, 
+            schemaChanged: schemaChanged 
+        });
+        res.end();
+    } catch (err) {
+        console.error('Batch edit error:', err);
+        sendEvent({ error: err.message });
+        res.end();
     }
 });
 
